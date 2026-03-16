@@ -380,6 +380,13 @@
     <div class="leaderboard" id="leaderboard"></div>
   </div>
   <div id="bracket" class="view">
+    <div id="sync-bar" style="display:none;text-align:center;padding:12px;margin-bottom:12px;">
+      <button class="btn btn-primary" onclick="syncESPN()" id="sync-btn" style="font-size:1em;padding:10px 28px;">
+        &#127936; Sync Results from ESPN
+      </button>
+      <span id="sync-status" style="margin-left:12px;color:var(--text2);font-size:0.85em;"></span>
+    </div>
+    <div id="sync-log" style="display:none;max-height:200px;overflow-y:auto;margin:0 auto 16px;max-width:700px;background:var(--surface);border-radius:12px;padding:12px 16px;font-size:0.82em;border:1px solid var(--border);"></div>
     <div id="bracket-container"></div>
     <div id="final-four-container"></div>
   </div>
@@ -429,8 +436,8 @@
 
 // ===== CONSTANTS =====
 const REGIONS = ['South','East','Midwest','West'];
-const PLAYERS = ['A','B','C','D','E','F','G','H'];
-const PLAYER_COLORS = ['#ff6b35','#ffd23f','#4ecdc4','#ff6b6b','#a78bfa','#60a5fa','#f472b6','#34d399'];
+const PLAYERS = ['A','B','C','D','E','F','G','H','I'];
+const PLAYER_COLORS = ['#ff6b35','#ffd23f','#4ecdc4','#ff6b6b','#a78bfa','#60a5fa','#f472b6','#34d399','#fb923c'];
 const ROUND_NAMES = ['R64','R32','Sweet 16','Elite 8'];
 const FF_ROUND_NAMES = ['Final Four','Championship'];
 
@@ -584,7 +591,7 @@ function setupNav() {
   });
 }
 
-function renderAll() { renderDashboard(); renderSetup(); renderBracket(); renderLog(); }
+function renderAll() { renderDashboard(); renderSetup(); renderBracket(); renderLog(); updateSyncBar(); }
 
 // ===== SCORING =====
 function calcPoints() {
@@ -874,6 +881,228 @@ function renderLog() {
     const oc=e.owner?PLAYER_COLORS[PLAYERS.indexOf(e.owner)]:'var(--text2)';
     return`<div class="log-entry"><span class="log-round">${e.round}</span><span class="seed-badge" style="font-size:0.72em">${e.seed}</span><span>${e.team} <span style="color:var(--text2)">(${e.region})</span></span><span style="color:${oc};font-size:0.82em;font-weight:600;">${on}</span><span style="color:var(--text2);font-size:0.75em;">${e.multiplier||''}</span><span class="log-points">+${e.points}</span></div>`;
   }).join('');
+}
+
+// ===== ESPN SYNC =====
+function normalizeTeamName(name) {
+  // Normalize for matching: lowercase, remove common suffixes, trim
+  return (name || '').toLowerCase()
+    .replace(/\bstate\b/g, 'st')
+    .replace(/\buniversity\b/g, '')
+    .replace(/[.\-'()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findTeamInSetup(espnName, espnAbbr, espnSeed) {
+  // Try to match an ESPN team to our setup by name similarity and seed
+  const normESPN = normalizeTeamName(espnName);
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (let ri = 0; ri < 4; ri++) {
+    for (let s = 1; s <= 16; s++) {
+      const t = state.teams[ri]?.[s];
+      if (!t?.name) continue;
+      const normOurs = normalizeTeamName(t.name);
+
+      let score = 0;
+      // Exact match
+      if (normOurs === normESPN) score = 100;
+      // One contains the other
+      else if (normESPN.includes(normOurs) || normOurs.includes(normESPN)) score = 80;
+      // Abbreviation match
+      else if (espnAbbr && normalizeTeamName(t.name).startsWith(normalizeTeamName(espnAbbr))) score = 60;
+      // Word overlap
+      else {
+        const w1 = normESPN.split(' '), w2 = normOurs.split(' ');
+        const overlap = w1.filter(w => w.length > 2 && w2.includes(w)).length;
+        if (overlap > 0) score = 20 + overlap * 15;
+      }
+
+      // Seed match bonus
+      if (espnSeed === s) score += 20;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = { ri, seed: s, name: t.name };
+      }
+    }
+  }
+
+  return bestScore >= 40 ? bestMatch : null;
+}
+
+function getRoundFromName(roundStr) {
+  // Map ESPN round description to our round indices
+  const r = (roundStr || '').toLowerCase();
+  if (r.includes('first four')) return { type: 'firstfour' };
+  if (r.includes('1st round') || r.includes('first round') || r.includes('round of 64')) return { type: 'region', round: 0 };
+  if (r.includes('2nd round') || r.includes('second round') || r.includes('round of 32')) return { type: 'region', round: 1 };
+  if (r.includes('sweet 16') || r.includes('sweet sixteen') || r.includes('regional semifinal')) return { type: 'region', round: 2 };
+  if (r.includes('elite 8') || r.includes('elite eight') || r.includes('regional final')) return { type: 'region', round: 3 };
+  if (r.includes('final four') || r.includes('national semifinal')) return { type: 'ff', round: 0 };
+  if (r.includes('championship') || r.includes('national championship') || r.includes('title game')) return { type: 'ff', round: 1 };
+  return null;
+}
+
+function getMatchIndexForSeed(ri, round, seed) {
+  // Find which matchup index a given seed would be in for a given round
+  const o = [[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
+  if (round === 0) {
+    for (let mi = 0; mi < o.length; mi++) {
+      if (o[mi][0] === seed || o[mi][1] === seed) return mi;
+    }
+    return null;
+  }
+  // For later rounds, trace the bracket path
+  // Round 1: winner of matchup mi goes to round1 matchup floor(mi/2)
+  for (let mi = 0; mi < 8 / Math.pow(2, round); mi++) {
+    const teams = getMatchupTeams(ri, round, mi, o);
+    if (teams.some(t => t && t.seed === seed)) return mi;
+  }
+  return null;
+}
+
+async function syncESPN() {
+  if (!isCommissioner) { alert('Only the commissioner can sync results.'); return; }
+
+  const btn = document.getElementById('sync-btn');
+  const statusEl = document.getElementById('sync-status');
+  const logEl = document.getElementById('sync-log');
+  btn.disabled = true;
+  btn.textContent = 'Fetching scores...';
+  statusEl.textContent = '';
+  logEl.style.display = 'block';
+  logEl.innerHTML = '<div style="color:var(--text2)">Fetching games from ESPN...</div>';
+
+  try {
+    const res = await fetch('/api/espn-scores');
+    if (!res.ok) throw new Error('Server error');
+    const data = await res.json();
+    const games = data.games || [];
+
+    let applied = 0, skipped = 0, notFound = 0;
+    let logLines = [];
+    logLines.push(`<div style="color:var(--green)">Found ${games.length} games from ESPN</div>`);
+
+    const completedGames = games.filter(g => g.completed);
+    logLines.push(`<div>${completedGames.length} completed games</div>`);
+
+    for (const game of completedGames) {
+      const winner = game.competitors.find(c => c.winner);
+      const loser = game.competitors.find(c => !c.winner);
+      if (!winner || !loser) { skipped++; continue; }
+
+      const roundInfo = getRoundFromName(game.round || game.name);
+      if (!roundInfo) {
+        // Could be a non-tournament game, skip silently
+        skipped++;
+        continue;
+      }
+
+      const winMatch = findTeamInSetup(winner.name, winner.abbreviation, winner.seed);
+      if (!winMatch) {
+        logLines.push(`<div style="color:var(--accent)">Could not match: ${winner.name} (seed ${winner.seed})</div>`);
+        notFound++;
+        continue;
+      }
+
+      const { ri, seed } = winMatch;
+
+      if (roundInfo.type === 'firstfour') {
+        // First Four games aren't in the main bracket — skip for now
+        logLines.push(`<div style="color:var(--text2)">First Four: ${winner.name} beat ${loser.name} (not in bracket)</div>`);
+        skipped++;
+        continue;
+      }
+
+      if (roundInfo.type === 'region') {
+        const round = roundInfo.round;
+        const o = [[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
+        const mi = getMatchIndexForSeed(ri, round, seed);
+
+        if (mi === null) {
+          logLines.push(`<div style="color:var(--accent)">Could not place ${winner.name} in round ${round}</div>`);
+          skipped++;
+          continue;
+        }
+
+        // Check if both teams in this matchup are available
+        const teams = getMatchupTeams(ri, round, mi, o);
+        if (!teams[0] || !teams[1]) {
+          // Prerequisites not met yet — earlier round result may be missing
+          logLines.push(`<div style="color:var(--text2)">Waiting for earlier results: ${winner.name} in ${ROUND_NAMES[round]}</div>`);
+          skipped++;
+          continue;
+        }
+
+        const existing = state.results[ri]?.[round]?.[mi];
+        if (existing === seed) {
+          // Already recorded
+          continue;
+        }
+
+        if (!state.results[ri]) state.results[ri] = {};
+        if (!state.results[ri][round]) state.results[ri][round] = {};
+        if (existing !== undefined) clearDownstream(ri, round, mi);
+        state.results[ri][round][mi] = seed;
+        addLog(ri, round, seed);
+        applied++;
+        logLines.push(`<div style="color:var(--green)">${ROUND_NAMES[round]}: ${winner.name} (${seed}-seed, ${REGIONS[ri]})</div>`);
+
+      } else if (roundInfo.type === 'ff') {
+        const round = roundInfo.round;
+        const wk = `${ri}-${seed}`;
+
+        if (round === 0) {
+          // Final Four: determine which semifinal (0 or 1)
+          // Semis: [South vs East], [Midwest vs West] => matchup 0 or 1
+          const mi = (ri === 0 || ri === 1) ? 0 : 1;
+          const existing = state.ffResults[0]?.[mi];
+          if (existing === wk) continue;
+
+          if (!state.ffResults[0]) state.ffResults[0] = {};
+          if (existing !== undefined && state.ffResults[1]) delete state.ffResults[1][0];
+          state.ffResults[0][mi] = wk;
+          addLog(ri, 4, seed);
+          applied++;
+          logLines.push(`<div style="color:var(--green)">Final Four: ${winner.name} (${seed}-seed, ${REGIONS[ri]})</div>`);
+
+        } else if (round === 1) {
+          const existing = state.ffResults[1]?.[0];
+          if (existing === wk) continue;
+
+          if (!state.ffResults[1]) state.ffResults[1] = {};
+          state.ffResults[1][0] = wk;
+          addLog(ri, 5, seed);
+          applied++;
+          logLines.push(`<div style="color:var(--green)">CHAMPIONSHIP: ${winner.name} (${seed}-seed, ${REGIONS[ri]})</div>`);
+        }
+      }
+    }
+
+    logLines.push(`<div style="margin-top:8px;font-weight:600;color:var(--text)">Applied: ${applied} | Skipped: ${skipped} | Not matched: ${notFound}</div>`);
+    logEl.innerHTML = logLines.join('');
+    statusEl.textContent = `Last synced: ${new Date().toLocaleTimeString()}`;
+
+    if (applied > 0) {
+      scheduleSave();
+      renderAll();
+    }
+
+  } catch (err) {
+    logEl.innerHTML = `<div style="color:var(--red)">Error fetching scores: ${err.message}. Try again in a moment.</div>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '&#127936; Sync Results from ESPN';
+}
+
+// Show/hide sync bar based on commissioner status
+function updateSyncBar() {
+  const bar = document.getElementById('sync-bar');
+  if (bar) bar.style.display = isCommissioner ? 'block' : 'none';
 }
 
 init();
