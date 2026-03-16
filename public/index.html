@@ -295,6 +295,36 @@
   .empty-state .big-icon { font-size: 4em; margin-bottom: 16px; opacity: 0.5; }
   .empty-state p { font-size: 1.1em; margin-bottom: 20px; }
 
+  /* COMMISSIONER LOGIN */
+  .commissioner-bar {
+    position: relative; z-index: 10;
+    background: rgba(35,48,75,0.5); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 30px; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    font-size: 0.82em;
+  }
+  .commissioner-bar.logged-in { background: rgba(78,205,196,0.08); }
+  .comm-status { color: var(--text2); }
+  .comm-status.active { color: var(--green); font-weight: 600; }
+  .comm-input {
+    background: rgba(10,14,26,0.6); border: 1px solid var(--border); color: var(--text);
+    padding: 5px 12px; border-radius: 6px; font-family: 'Outfit', sans-serif; font-size: 0.95em;
+    outline: none; width: 160px;
+  }
+  .comm-input:focus { border-color: var(--accent); }
+  .comm-btn {
+    background: linear-gradient(135deg, var(--accent), #e85a2b); color: #fff; border: none;
+    padding: 5px 14px; border-radius: 6px; cursor: pointer; font-family: 'Outfit', sans-serif;
+    font-weight: 700; font-size: 0.95em; transition: all 0.2s;
+  }
+  .comm-btn:hover { transform: translateY(-1px); }
+  .comm-btn.logout { background: var(--surface2); border: 1px solid var(--border); }
+  .read-only-banner {
+    background: rgba(255,210,63,0.1); border: 1px solid rgba(255,210,63,0.3);
+    border-radius: 10px; padding: 12px 20px; margin-bottom: 16px; text-align: center;
+    color: var(--accent2); font-size: 0.9em; font-weight: 600;
+  }
+
   @media (max-width: 768px) {
     header { padding: 14px 16px; } header h1 { font-size: 1.2em; }
     .container { padding: 12px; } .bracket-round { min-width: 160px; }
@@ -316,6 +346,12 @@
 </div>
 
 <div class="particles" id="particles"></div>
+
+<div class="commissioner-bar" id="comm-bar">
+  <span class="comm-status" id="comm-status">View Only</span>
+  <input type="password" class="comm-input" id="comm-password" placeholder="Commissioner password" onkeydown="if(event.key==='Enter')commLogin()">
+  <button class="comm-btn" id="comm-btn" onclick="commLogin()">Unlock</button>
+</div>
 
 <header>
   <div class="logo">
@@ -400,6 +436,50 @@ const FF_ROUND_NAMES = ['Final Four','Championship'];
 
 let state = { playerNames:{}, teams:{}, results:{}, ffResults:{}, log:[] };
 let saveTimeout = null;
+let isCommissioner = false;
+let commPassword = '';
+
+// ===== COMMISSIONER =====
+async function commLogin() {
+  const pw = document.getElementById('comm-password').value;
+  if (!pw) return;
+  try {
+    const res = await fetch('/api/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json();
+    if (data.valid) {
+      isCommissioner = true;
+      commPassword = pw;
+      document.getElementById('comm-bar').classList.add('logged-in');
+      document.getElementById('comm-status').textContent = 'Commissioner Mode';
+      document.getElementById('comm-status').classList.add('active');
+      document.getElementById('comm-password').style.display = 'none';
+      document.getElementById('comm-btn').textContent = 'Lock';
+      document.getElementById('comm-btn').classList.add('logout');
+      document.getElementById('comm-btn').onclick = commLogout;
+      renderAll();
+    } else {
+      alert('Wrong password!');
+    }
+  } catch(e) { alert('Error checking password'); }
+}
+
+function commLogout() {
+  isCommissioner = false;
+  commPassword = '';
+  document.getElementById('comm-bar').classList.remove('logged-in');
+  document.getElementById('comm-status').textContent = 'View Only';
+  document.getElementById('comm-status').classList.remove('active');
+  document.getElementById('comm-password').style.display = '';
+  document.getElementById('comm-password').value = '';
+  document.getElementById('comm-btn').textContent = 'Unlock';
+  document.getElementById('comm-btn').classList.remove('logout');
+  document.getElementById('comm-btn').onclick = commLogin;
+  renderAll();
+}
 
 // ===== SERVER COMMUNICATION =====
 async function loadFromServer() {
@@ -416,11 +496,16 @@ async function loadFromServer() {
 }
 
 async function saveToServer() {
+  if (!isCommissioner) {
+    alert('Only the commissioner can make changes. Enter the password to unlock.');
+    await loadFromServer(); renderAll();
+    return;
+  }
   setConnStatus('saving', 'Saving...');
   try {
     const res = await fetch('/api/data', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-commissioner-password': commPassword },
       body: JSON.stringify(state)
     });
     if (res.ok) {
@@ -428,7 +513,9 @@ async function saveToServer() {
       showSaveNotice();
       setTimeout(() => setConnStatus('online', 'Connected'), 2000);
     } else {
-      setConnStatus('error', 'Save failed');
+      const err = await res.json();
+      setConnStatus('error', err.error || 'Save failed');
+      alert(err.error || 'Save failed');
     }
   } catch(e) {
     console.error('Failed to save:', e);
@@ -501,24 +588,29 @@ function renderAll() { renderDashboard(); renderSetup(); renderBracket(); render
 
 // ===== SCORING =====
 function calcPoints() {
+  // Scoring: seed × round multiplier
+  // Round 1 (R64)=1x, Round 2 (R32)=2x, Round 3 (Sweet 16)=3x,
+  // Round 4 (Elite 8)=4x, Round 5 (Final Four)=5x, Round 6 (Championship)=6x
   const points = {};
   PLAYERS.forEach(p => points[p] = 0);
   REGIONS.forEach((r,ri) => {
     for (let round=0; round<4; round++) {
       if (!state.results[ri]?.[round]) continue;
+      const multiplier = round + 1; // R64=1, R32=2, Sweet16=3, Elite8=4
       Object.values(state.results[ri][round]).forEach(ws => {
         const t = state.teams[ri]?.[ws];
-        if (t?.owner) points[t.owner] = (points[t.owner]||0) + ws;
+        if (t?.owner) points[t.owner] = (points[t.owner]||0) + (ws * multiplier);
       });
     }
   });
   for (let round=0; round<2; round++) {
     if (!state.ffResults[round]) continue;
+    const multiplier = round + 5; // Final Four=5, Championship=6
     Object.values(state.ffResults[round]).forEach(wk => {
       if (!wk) return;
       const [ri,seed] = wk.split('-').map(Number);
       const t = state.teams[ri]?.[seed];
-      if (t?.owner) points[t.owner] = (points[t.owner]||0) + seed;
+      if (t?.owner) points[t.owner] = (points[t.owner]||0) + (seed * multiplier);
     });
   }
   return points;
@@ -645,12 +737,14 @@ function renderSetup() {
 }
 
 function fillDefault2026() {
+  if(!isCommissioner){alert('Only the commissioner can make changes.');return;}
   const d={0:{1:'Houston',2:'Tennessee',3:'Kentucky',4:'Arizona',5:'Clemson',6:'Illinois',7:'UCLA',8:'Gonzaga',9:'Georgia',10:'Purdue',11:'Drake',12:'UC San Diego',13:'Yale',14:'Lipscomb',15:'Omaha',16:'SIU Edwardsville'},1:{1:'Duke',2:'Alabama',3:'Wisconsin',4:'Arizona St',5:'Oregon',6:'BYU',7:'St. Marys',8:'UConn',9:'Oklahoma',10:'Arkansas',11:'Vanderbilt',12:'Liberty',13:'VCU',14:'Troy',15:'Robert Morris',16:'American'},2:{1:'Auburn',2:'Michigan St',3:'Iowa St',4:'Texas A&M',5:'Michigan',6:'Missouri',7:'Marquette',8:'Louisville',9:'Creighton',10:'New Mexico',11:'San Diego St',12:'Colorado St',13:'Grand Canyon',14:'Montana',15:'Wofford',16:'Norfolk St'},3:{1:'Florida',2:'St. Johns',3:'Texas Tech',4:'Maryland',5:'Memphis',6:'Miss St',7:'Kansas',8:'UNC',9:'Baylor',10:'Pittsburgh',11:'NC State',12:'McNeese',13:'High Point',14:'Akron',15:'N Kentucky',16:'FDU'}};
   REGIONS.forEach((r,ri)=>{if(!state.teams[ri])state.teams[ri]={};for(let s=1;s<=16;s++){if(!state.teams[ri][s])state.teams[ri][s]={};state.teams[ri][s].name=d[ri][s];if(!state.teams[ri][s].owner)state.teams[ri][s].owner='';}});
   scheduleSave(); renderAll();
 }
 
 function resetAll() {
+  if(!isCommissioner){alert('Only the commissioner can make changes.');return;}
   if(!confirm('This will erase ALL data. Are you sure?')) return;
   state={playerNames:{},teams:{},results:{},ffResults:{},log:[]};
   PLAYERS.forEach(p=>state.playerNames[p]=p);
@@ -664,6 +758,7 @@ function renderBracket() {
   const ffC=document.getElementById('final-four-container');
   const ri_icons=['&#127993;','&#127775;','&#127806;','&#127754;'];
   let html='';
+  if(!isCommissioner) html+='<div class="read-only-banner">View Only — enter the commissioner password above to make changes</div>';
   REGIONS.forEach((region,ri)=>{
     html+=`<div class="bracket-region"><h3><span>${ri_icons[ri]}</span> ${region} Region</h3><div class="bracket-grid">`;
     const o=[[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
@@ -736,6 +831,7 @@ function getFFMatchupTeams(round,mi,semis) {
 }
 
 function pickWinner(ri,round,mi,seed) {
+  if(!isCommissioner){alert('Only the commissioner can enter results. Enter the password above to unlock.');return;}
   if(!state.results[ri])state.results[ri]={};
   if(!state.results[ri][round])state.results[ri][round]={};
   const o=[[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
@@ -748,6 +844,7 @@ function pickWinner(ri,round,mi,seed) {
 }
 
 function pickFFWinner(round,mi,wk) {
+  if(!isCommissioner){alert('Only the commissioner can enter results. Enter the password above to unlock.');return;}
   if(!state.ffResults[round])state.ffResults[round]={};
   const prev=state.ffResults[round][mi];
   if(prev===wk){delete state.ffResults[round][mi];if(round===0&&state.ffResults[1])delete state.ffResults[1][0];}
@@ -762,8 +859,10 @@ function clearDownstream(ri,round,mi) {
 
 function addLog(ri,round,seed) {
   const rn=['R64','R32','Sweet 16','Elite 8','Final Four','Championship'];
+  const multiplier = round + 1; // round 0=R64(1x), 1=R32(2x), 2=S16(3x), 3=E8(4x), 4=FF(5x), 5=Champ(6x)
+  const pts = seed * multiplier;
   const t=state.teams[ri]?.[seed]; if(!t)return;
-  state.log.push({time:new Date().toISOString(),region:REGIONS[ri],round:rn[round]||`Round ${round}`,seed,team:t.name,owner:t.owner,points:seed});
+  state.log.push({time:new Date().toISOString(),region:REGIONS[ri],round:rn[round]||`Round ${round}`,seed,team:t.name,owner:t.owner,points:pts,multiplier:multiplier+'x'});
 }
 
 // ===== LOG =====
@@ -773,7 +872,7 @@ function renderLog() {
   list.innerHTML=[...state.log].reverse().map(e=>{
     const on=e.owner?(state.playerNames[e.owner]||e.owner):'Unowned';
     const oc=e.owner?PLAYER_COLORS[PLAYERS.indexOf(e.owner)]:'var(--text2)';
-    return`<div class="log-entry"><span class="log-round">${e.round}</span><span class="seed-badge" style="font-size:0.72em">${e.seed}</span><span>${e.team} <span style="color:var(--text2)">(${e.region})</span></span><span style="color:${oc};font-size:0.82em;font-weight:600;">${on}</span><span class="log-points">+${e.points}</span></div>`;
+    return`<div class="log-entry"><span class="log-round">${e.round}</span><span class="seed-badge" style="font-size:0.72em">${e.seed}</span><span>${e.team} <span style="color:var(--text2)">(${e.region})</span></span><span style="color:${oc};font-size:0.82em;font-weight:600;">${on}</span><span style="color:var(--text2);font-size:0.75em;">${e.multiplier||''}</span><span class="log-points">+${e.points}</span></div>`;
   }).join('');
 }
 
@@ -781,4 +880,3 @@ init();
 </script>
 </body>
 </html>
-
