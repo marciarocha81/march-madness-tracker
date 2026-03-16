@@ -75,6 +75,83 @@ app.post('/api/data', (req, res) => {
   }
 });
 
+// ESPN scores proxy — fetches tournament results from ESPN's public API
+app.get('/api/espn-scores', async (req, res) => {
+  const https = require('https');
+  // 2026 NCAA Tournament dates
+  const tournamentDates = [
+    '20260317','20260318', // First Four
+    '20260319','20260320', // Round of 64
+    '20260321','20260322', // Round of 32
+    '20260326','20260327', // Sweet 16
+    '20260328','20260329', // Elite 8
+    '20260404',            // Final Four
+    '20260406'             // Championship
+  ];
+
+  function fetchDate(date) {
+    return new Promise((resolve, reject) => {
+      const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates=${date}&groups=100&limit=200`;
+      https.get(url, (resp) => {
+        let data = '';
+        resp.on('data', chunk => data += chunk);
+        resp.on('end', () => {
+          try { resolve(JSON.parse(data)); } catch(e) { resolve({ events: [] }); }
+        });
+      }).on('error', () => resolve({ events: [] }));
+    });
+  }
+
+  try {
+    const allGames = [];
+    // Fetch all dates in parallel
+    const results = await Promise.all(tournamentDates.map(d => fetchDate(d)));
+    results.forEach(dayData => {
+      (dayData.events || []).forEach(event => {
+        const comp = event.competitions?.[0];
+        if (!comp) return;
+        // Only include NCAA tournament games (check notes or season type)
+        const isTourney = event.season?.slug === 'post-season' ||
+          (comp.notes && comp.notes.some(n => (n.headline || '').toLowerCase().includes('ncaa'))) ||
+          (event.name || '').toLowerCase().includes('ncaa') ||
+          (comp.type?.abbreviation === 'NCAA');
+
+        const competitors = comp.competitors || [];
+        if (competitors.length !== 2) return;
+
+        const game = {
+          id: event.id,
+          name: event.name || '',
+          status: comp.status?.type?.description || 'Scheduled',
+          completed: comp.status?.type?.completed || false,
+          round: '',
+          competitors: competitors.map(c => ({
+            name: c.team?.displayName || c.team?.shortDisplayName || '',
+            shortName: c.team?.shortDisplayName || c.team?.displayName || '',
+            abbreviation: c.team?.abbreviation || '',
+            seed: c.curatedRank?.current || 0,
+            score: parseInt(c.score) || 0,
+            winner: c.winner || false,
+            homeAway: c.homeAway || ''
+          }))
+        };
+
+        // Try to extract round info from notes
+        if (comp.notes?.length) {
+          game.round = comp.notes[0].headline || '';
+        }
+
+        allGames.push(game);
+      });
+    });
+
+    res.json({ games: allGames, fetchedAt: new Date().toISOString() });
+  } catch (err) {
+    console.error('ESPN fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch scores from ESPN' });
+  }
+});
+
 // Verify password endpoint
 app.post('/api/verify-password', (req, res) => {
   const { password } = req.body;
