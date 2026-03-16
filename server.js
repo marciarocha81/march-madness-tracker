@@ -5,8 +5,10 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Commissioner password — change this to whatever you want!
+const COMMISSIONER_PASSWORD = process.env.COMMISSIONER_PASSWORD || 'madness2026';
+
 // Where we store the data file
-// On Glitch, use .data/ for persistent storage; otherwise use the app root
 const DATA_DIR = fs.existsSync('.data') ? '.data' : '.';
 const DATA_FILE = path.join(DATA_DIR, 'tournament-data.json');
 
@@ -49,14 +51,18 @@ function saveData(data) {
 
 // ===== API ROUTES =====
 
-// GET the full tournament state
+// GET the full tournament state (anyone can view)
 app.get('/api/data', (req, res) => {
   const data = loadData();
   res.json(data);
 });
 
-// POST (save) the full tournament state
+// POST (save) the full tournament state (password required)
 app.post('/api/data', (req, res) => {
+  const password = req.headers['x-commissioner-password'];
+  if (password !== COMMISSIONER_PASSWORD) {
+    return res.status(403).json({ error: 'Wrong password. Only the commissioner can make changes.' });
+  }
   const data = req.body;
   if (!data || typeof data !== 'object') {
     return res.status(400).json({ error: 'Invalid data' });
@@ -66,6 +72,16 @@ app.post('/api/data', (req, res) => {
     res.json({ status: 'ok' });
   } else {
     res.status(500).json({ error: 'Failed to save' });
+  }
+});
+
+// Verify password endpoint
+app.post('/api/verify-password', (req, res) => {
+  const { password } = req.body;
+  if (password === COMMISSIONER_PASSWORD) {
+    res.json({ valid: true });
+  } else {
+    res.json({ valid: false });
   }
 });
 
