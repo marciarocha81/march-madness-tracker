@@ -396,6 +396,25 @@
   .pd-game-result.win { background: rgba(78,205,196,0.15); color: var(--green); }
   .pd-game-result.loss { background: rgba(255,107,107,0.15); color: var(--red); }
   .pd-game-pts { font-weight: 800; min-width: 50px; text-align: right; }
+  .pd-grid-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .pd-grid-table th { font-size: 0.72em; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--border); }
+  .pd-grid-table th:first-child { text-align: left; }
+  .pd-grid-table td { padding: 10px 6px; text-align: center; border-bottom: 1px solid rgba(60,85,120,0.2); font-weight: 700; font-size: 0.95em; }
+  .pd-grid-table td:first-child { text-align: left; }
+  .pd-grid-table tr:last-child td { border-bottom: none; }
+  .pd-grid-team { display: flex; align-items: center; gap: 8px; }
+  .pd-grid-seed { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.78em; flex-shrink: 0; }
+  .pd-grid-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+  .pd-grid-status { font-size: 0.7em; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
+  .pd-grid-status.alive { background: rgba(78,205,196,0.15); color: var(--green); }
+  .pd-grid-status.elim { background: rgba(255,107,107,0.15); color: var(--red); }
+  .pd-cell-actual { color: #fff; }
+  .pd-cell-projected { color: rgba(167,139,250,0.5); font-style: italic; }
+  .pd-cell-win { color: var(--green); }
+  .pd-cell-loss { color: var(--red); font-size: 0.8em; }
+  .pd-cell-empty { color: rgba(122,140,160,0.3); }
+  .pd-grid-total-row td { border-top: 2px solid var(--border); font-weight: 800; font-size: 1.05em; }
+  .pd-grid-total-row td:first-child { font-weight: 800; }
   .pd-round-summary { display: flex; flex-wrap: wrap; gap: 10px; }
   .pd-round-box {
     flex: 1; min-width: 80px; text-align: center; padding: 12px 8px;
@@ -1195,43 +1214,174 @@ function renderPlayerDetail(p) {
       <div class="pd-score-box"><div class="pd-score-val projected">${(proj[p]||0).toFixed(1)}</div><div class="pd-score-lbl">Projected</div></div>
     </div></div>`;
 
-  // Teams section
-  html += `<div class="pd-section"><h3>&#127936; Teams (${myTeams.length})</h3>`;
-  myTeams.sort((a,b) => b.points - a.points).forEach(t => {
-    const seedColor = t.alive ? 'var(--green)' : 'var(--red)';
-    html += `<div class="pd-team-row">
-      <div class="pd-team-seed" style="background:${seedColor}22;color:${seedColor}">${t.seed}</div>
-      <div class="pd-team-name">${t.name}</div>
-      <div class="pd-team-region">${t.region}</div>
-      <span class="pd-team-status ${t.alive?'alive':'elim'}">${t.alive?'Alive':'Eliminated'}</span>
-      <div class="pd-team-pts" style="color:${t.points>0?'var(--accent)':'var(--text2)'}">${t.points > 0 ? '+'+t.points : '0'}</div>
-    </div>`;
-  });
-  html += '</div>';
+  // Build per-team, per-round data for the grid
+  const roundCols = ['R64','R32','Sweet 16','Elite 8','Final Four','Championship'];
+  const roundMultipliers = [1,2,3,4,5,6];
 
-  // Game Log
-  html += `<div class="pd-section"><h3>&#128203; Game Results (${gameLog.length})</h3>`;
-  if (gameLog.length === 0) {
-    html += '<div style="color:var(--text2);padding:8px 0;">No games played yet.</div>';
-  } else {
-    gameLog.forEach(g => {
-      html += `<div class="pd-game-row">
-        <div class="pd-game-round">${g.round}</div>
-        <div class="pd-game-matchup"><strong>${g.team}</strong> <span style="color:var(--text2);font-size:0.85em">(${g.seed})</span> vs ${g.opponent} <span style="color:var(--text2);font-size:0.85em">(${g.opSeed})</span></div>
-        <span class="pd-game-result ${g.won?'win':'loss'}">${g.won?'WIN':'LOSS'}</span>
-        <div class="pd-game-pts" style="color:${g.won?'var(--green)':'var(--text2)'}">${g.won?'+'+g.points+' ('+g.seed+'×'+g.multiplier+')':'—'}</div>
-      </div>`;
-    });
+  // For each team, figure out what happened (or is projected) in each round
+  function getTeamRoundData(t) {
+    const data = []; // array of 6 objects: { actual: number|null, projected: number|null, won: bool|null, lost: bool|null }
+    for (let r = 0; r < 6; r++) {
+      data.push({ actual: null, projected: null, won: null, lost: null });
+    }
+
+    // Check actual results for regional rounds (0-3)
+    for (let round = 0; round < 4; round++) {
+      const mi = getMatchIndex(t.ri, round, t.seed);
+      if (mi === null) break; // team couldn't have reached this round
+      if (state.results[t.ri]?.[round]?.[mi] !== undefined) {
+        const winner = state.results[t.ri][round][mi];
+        if (winner === t.seed) {
+          data[round].actual = t.seed * roundMultipliers[round];
+          data[round].won = true;
+        } else {
+          data[round].actual = 0;
+          data[round].lost = true;
+          break; // eliminated
+        }
+      } else {
+        break; // round not played yet
+      }
+    }
+
+    // Check FF actual results
+    const rw = getRegionWinner(t.ri);
+    if (rw === t.seed) {
+      // Made Final Four
+      const fmi = getFFMatchIndex(0, t.ri);
+      if (fmi !== null && state.ffResults[0]?.[fmi] !== undefined) {
+        const wk = state.ffResults[0][fmi];
+        if (wk === `${t.ri}-${t.seed}`) {
+          data[4].actual = t.seed * 5; data[4].won = true;
+          // Check championship
+          if (state.ffResults[1]?.[0] !== undefined) {
+            if (state.ffResults[1][0] === `${t.ri}-${t.seed}`) {
+              data[5].actual = t.seed * 6; data[5].won = true;
+            } else {
+              data[5].actual = 0; data[5].lost = true;
+            }
+          }
+        } else {
+          data[4].actual = 0; data[4].lost = true;
+        }
+      }
+    }
+
+    // Add projections for future rounds (only for alive teams)
+    if (t.alive && t.nextRound >= 0 && t.nextRound < 6) {
+      const winProb = findOddsForTeam(t.name);
+      if (winProb !== null) {
+        let cumProb = 1.0;
+        for (let fr = t.nextRound; fr < 6; fr++) {
+          let rProb = (fr === t.nextRound) ? winProb : winProb * 0.85;
+          cumProb *= rProb;
+          data[fr].projected = cumProb * t.seed * roundMultipliers[fr];
+        }
+      }
+    }
+    return data;
   }
-  html += '</div>';
 
-  // Round-by-round breakdown
-  html += `<div class="pd-section"><h3>&#128200; Points by Round</h3><div class="pd-round-summary">`;
-  roundNames.forEach(r => {
-    const v = roundPts[r] || 0;
-    html += `<div class="pd-round-box"><div class="pd-round-name">${r}</div><div class="pd-round-val" style="color:${v>0?'var(--accent)':'var(--text2)'}">${v}</div></div>`;
+  // Sort teams: most points first, then alive before eliminated
+  myTeams.sort((a,b) => b.points - a.points || (b.alive?1:0) - (a.alive?1:0));
+
+  // Helper to build a table header
+  function gridHeader() {
+    let h = `<tr><th>Team</th>`;
+    roundCols.forEach(r => { h += `<th>${r}</th>`; });
+    h += `<th>Total</th></tr>`;
+    return h;
+  }
+
+  // Helper to build team name cell
+  function teamCell(t) {
+    const seedColor = t.alive ? 'var(--green)' : 'var(--red)';
+    return `<td><div class="pd-grid-team">
+      <div class="pd-grid-seed" style="background:${seedColor}22;color:${seedColor}">${t.seed}</div>
+      <div class="pd-grid-name">${t.name}</div>
+      <span class="pd-grid-status ${t.alive?'alive':'elim'}">${t.alive?'A':'X'}</span>
+    </div></td>`;
+  }
+
+  // ===== SECTION 1: ACTUAL RESULTS =====
+  html += `<div class="pd-section"><h3>&#127942; Actual Results</h3>`;
+  html += `<div style="overflow-x:auto;"><table class="pd-grid-table">`;
+  html += gridHeader();
+
+  const actualColTotals = [0,0,0,0,0,0];
+  let actualGrandTotal = 0;
+
+  myTeams.forEach(t => {
+    const rd = getTeamRoundData(t);
+    html += `<tr>${teamCell(t)}`;
+    let teamActualTotal = 0;
+    for (let r = 0; r < 6; r++) {
+      const d = rd[r];
+      if (d.actual !== null && d.won) {
+        html += `<td class="pd-cell-win">+${d.actual}</td>`;
+        actualColTotals[r] += d.actual;
+        teamActualTotal += d.actual;
+      } else if (d.actual !== null && d.lost) {
+        html += `<td class="pd-cell-loss">X</td>`;
+      } else {
+        html += `<td class="pd-cell-empty">0</td>`;
+      }
+    }
+    actualGrandTotal += teamActualTotal;
+    html += `<td class="pd-cell-actual" style="font-weight:800;">${teamActualTotal}</td></tr>`;
   });
-  html += '</div></div>';
+
+  // Totals row
+  html += `<tr class="pd-grid-total-row"><td style="color:var(--accent);">TOTAL</td>`;
+  for (let r = 0; r < 6; r++) {
+    html += `<td class="pd-cell-actual">${actualColTotals[r] > 0 ? actualColTotals[r] : '0'}</td>`;
+  }
+  html += `<td class="pd-cell-actual" style="font-weight:900;font-size:1.15em;">${actualGrandTotal}</td></tr>`;
+  html += `</table></div></div>`;
+
+  // ===== SECTION 2: PROJECTED =====
+  html += `<div class="pd-section"><h3>&#128302; Projected Points</h3>`;
+  html += `<div style="overflow-x:auto;"><table class="pd-grid-table">`;
+  html += gridHeader();
+
+  const projColTotals = [0,0,0,0,0,0];
+  let projGrandTotal = 0;
+
+  myTeams.forEach(t => {
+    const rd = getTeamRoundData(t);
+    html += `<tr>${teamCell(t)}`;
+    let teamProjTotal = 0;
+    for (let r = 0; r < 6; r++) {
+      const d = rd[r];
+      if (d.actual !== null && d.won) {
+        // Already played and won — show actual in white
+        html += `<td class="pd-cell-actual">${d.actual}</td>`;
+        projColTotals[r] += d.actual;
+        teamProjTotal += d.actual;
+      } else if (d.actual !== null && d.lost) {
+        html += `<td class="pd-cell-loss">X</td>`;
+      } else if (d.projected !== null) {
+        // Future round — show projected in gray
+        const pv = d.projected.toFixed(1);
+        html += `<td class="pd-cell-projected">${pv}</td>`;
+        projColTotals[r] += d.projected;
+        teamProjTotal += d.projected;
+      } else {
+        html += `<td class="pd-cell-empty">—</td>`;
+      }
+    }
+    projGrandTotal += teamProjTotal;
+    html += `<td style="font-weight:800;"><span class="pd-cell-projected">${teamProjTotal.toFixed(1)}</span></td></tr>`;
+  });
+
+  // Totals row
+  html += `<tr class="pd-grid-total-row"><td style="color:var(--purple);">TOTAL</td>`;
+  for (let r = 0; r < 6; r++) {
+    const v = projColTotals[r];
+    html += `<td class="pd-cell-projected">${v > 0 ? v.toFixed(1) : '0'}</td>`;
+  }
+  html += `<td class="pd-cell-projected" style="font-weight:900;font-size:1.15em;">${projGrandTotal.toFixed(1)}</td></tr>`;
+  html += `</table></div></div>`;
 
   detailEl.innerHTML = html;
 }
