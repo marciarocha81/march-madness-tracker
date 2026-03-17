@@ -199,9 +199,18 @@
   .player-name { font-size: 1.15em; font-weight: 700; margin-bottom: 2px; }
   .player-teams-list { font-size: 0.78em; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .alive-badge { display: inline-block; background: rgba(78,205,196,0.15); color: var(--green); font-size: 0.75em; font-weight: 700; padding: 2px 8px; border-radius: 6px; margin-left: 6px; }
+  .player-scores { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
   .player-points { font-size: 2em; font-weight: 900; text-align: right; min-width: 80px; }
   .player-points .pts-num { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .player-points .pts-label { font-size: 0.35em; color: var(--text2); font-weight: 500; display: block; -webkit-text-fill-color: var(--text2); text-transform: uppercase; letter-spacing: 2px; }
+  .player-projected { font-size: 1.4em; font-weight: 700; text-align: right; min-width: 70px; opacity: 0.7; }
+  .player-projected .proj-num { color: var(--purple); }
+  .player-projected .proj-label { font-size: 0.4em; color: var(--text2); font-weight: 500; display: block; text-transform: uppercase; letter-spacing: 1px; }
+  .scores-divider { width: 1px; height: 36px; background: var(--border); flex-shrink: 0; }
+  .proj-btn-bar { text-align: center; padding: 12px; margin-bottom: 12px; }
+  .proj-btn-bar button { font-size: 0.95em; padding: 8px 20px; }
+  .proj-status { margin-left: 10px; color: var(--text2); font-size: 0.82em; }
+  .proj-remaining { color: var(--green); font-size: 0.78em; margin-left: 8px; }
 
   /* SETUP */
   .setup-panel { background: var(--surface); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; }
@@ -325,12 +334,84 @@
     color: var(--accent2); font-size: 0.9em; font-weight: 600;
   }
 
+  /* PLAYERS LIST */
+  .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .player-list-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; cursor: pointer; transition: all 0.3s ease;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .player-list-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-color: rgba(255,107,53,0.4); }
+  .player-list-avatar {
+    width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-weight: 900; font-size: 1.3em; color: #fff; flex-shrink: 0;
+  }
+  .player-list-info { flex: 1; min-width: 0; }
+  .player-list-name { font-size: 1.15em; font-weight: 700; margin-bottom: 2px; }
+  .player-list-meta { font-size: 0.8em; color: var(--text2); }
+  .player-list-pts { font-size: 1.5em; font-weight: 900; }
+  .player-list-pts .pnum { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  /* PLAYER DETAIL */
+  .pd-back { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); font-size: 0.9em; cursor: pointer; margin-bottom: 16px; transition: color 0.2s; }
+  .pd-back:hover { color: var(--accent); }
+  .pd-header {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; margin-bottom: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .pd-avatar { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.8em; color: #fff; flex-shrink: 0; }
+  .pd-name { font-size: 1.6em; font-weight: 900; }
+  .pd-rank { font-size: 0.85em; color: var(--text2); }
+  .pd-scores-row { display: flex; gap: 24px; margin-left: auto; flex-wrap: wrap; }
+  .pd-score-box { text-align: center; }
+  .pd-score-val { font-size: 2.2em; font-weight: 900; }
+  .pd-score-val.actual { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .pd-score-val.projected { color: var(--purple); }
+  .pd-score-lbl { font-size: 0.7em; color: var(--text2); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+  .pd-section {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px; margin-bottom: 20px;
+  }
+  .pd-section h3 { font-size: 1.1em; font-weight: 800; margin-bottom: 14px; background: linear-gradient(135deg, var(--accent2), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .pd-team-row {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid rgba(60,85,120,0.2); font-size: 0.92em;
+  }
+  .pd-team-row:last-child { border-bottom: none; }
+  .pd-team-seed { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82em; flex-shrink: 0; }
+  .pd-team-name { flex: 1; font-weight: 600; }
+  .pd-team-region { color: var(--text2); font-size: 0.82em; }
+  .pd-team-status { font-size: 0.78em; font-weight: 700; padding: 3px 10px; border-radius: 6px; }
+  .pd-team-status.alive { background: rgba(78,205,196,0.15); color: var(--green); }
+  .pd-team-status.elim { background: rgba(255,107,107,0.15); color: var(--red); }
+  .pd-team-pts { font-weight: 800; min-width: 50px; text-align: right; }
+  .pd-game-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid rgba(60,85,120,0.2); font-size: 0.88em;
+  }
+  .pd-game-row:last-child { border-bottom: none; }
+  .pd-game-round { color: var(--text2); min-width: 70px; font-weight: 600; font-size: 0.82em; }
+  .pd-game-matchup { flex: 1; }
+  .pd-game-result { font-weight: 800; padding: 3px 10px; border-radius: 6px; font-size: 0.82em; }
+  .pd-game-result.win { background: rgba(78,205,196,0.15); color: var(--green); }
+  .pd-game-result.loss { background: rgba(255,107,107,0.15); color: var(--red); }
+  .pd-game-pts { font-weight: 800; min-width: 50px; text-align: right; }
+  .pd-round-summary { display: flex; flex-wrap: wrap; gap: 10px; }
+  .pd-round-box {
+    flex: 1; min-width: 80px; text-align: center; padding: 12px 8px;
+    background: var(--surface2); border-radius: 10px;
+  }
+  .pd-round-name { font-size: 0.72em; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .pd-round-val { font-size: 1.3em; font-weight: 800; }
+
   @media (max-width: 768px) {
     header { padding: 14px 16px; } header h1 { font-size: 1.2em; }
     .container { padding: 12px; } .bracket-round { min-width: 160px; }
     .player-card { padding: 12px 14px; gap: 10px; } .player-points { font-size: 1.5em; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
     nav button { padding: 6px 12px; font-size: 0.8em; }
+    .pd-header { padding: 18px; } .pd-scores-row { margin-left: 0; width: 100%; justify-content: center; }
+    .players-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -367,6 +448,7 @@
   <nav>
     <button class="active" data-view="dashboard">Dashboard</button>
     <button data-view="bracket">Bracket</button>
+    <button data-view="players">Players</button>
     <button data-view="setup">Setup</button>
     <button data-view="log">Log</button>
   </nav>
@@ -376,6 +458,11 @@
   <div id="dashboard" class="view active">
     <div class="tournament-progress" id="progress-bar"></div>
     <div class="stats-grid" id="stats-grid"></div>
+    <div id="proj-btn-bar" class="proj-btn-bar" style="display:none;">
+      <button class="btn btn-secondary" onclick="fetchProjections()" id="proj-btn">&#128202; Update Projections</button>
+      <span class="proj-status" id="proj-status"></span>
+      <span class="proj-remaining" id="proj-remaining"></span>
+    </div>
     <div class="section-title"><span class="emoji">&#127942;</span> Leaderboard</div>
     <div class="leaderboard" id="leaderboard"></div>
   </div>
@@ -412,6 +499,10 @@
       <h3>Scoring History</h3>
       <div id="points-log-list"></div>
     </div>
+  </div>
+  <div id="players" class="view">
+    <div id="players-list"></div>
+    <div id="player-detail" style="display:none;"></div>
   </div>
 </div>
 
@@ -566,14 +657,16 @@ setInterval(async () => {
 // ===== INIT =====
 async function init() {
   await loadFromServer();
+  const DEFAULT_NAMES = {A:'Adam',B:'Brock',C:'Chase',D:'Collin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
   if (!state.playerNames || Object.keys(state.playerNames).length === 0)
-    PLAYERS.forEach(p => state.playerNames[p] = p);
+    PLAYERS.forEach(p => state.playerNames[p] = DEFAULT_NAMES[p] || p);
   if (!state.teams || Object.keys(state.teams).length === 0) {
     REGIONS.forEach((r,ri) => { state.teams[ri] = {}; for(let s=1;s<=16;s++) state.teams[ri][s]={name:'',owner:''}; });
   }
   if (!state.results) state.results = {};
   if (!state.ffResults) state.ffResults = {};
   if (!state.log) state.log = [];
+  if (state.projections) projectedPoints = state.projections;
   setupNav();
   renderAll();
   document.getElementById('loading').classList.add('hidden');
@@ -586,12 +679,13 @@ function setupNav() {
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(btn.dataset.view).classList.add('active');
+      if (btn.dataset.view !== 'players') selectedPlayer = null;
       renderAll();
     });
   });
 }
 
-function renderAll() { renderDashboard(); renderSetup(); renderBracket(); renderLog(); updateSyncBar(); }
+function renderAll() { renderDashboard(); renderSetup(); renderBracket(); renderLog(); renderPlayers(); updateSyncBar(); }
 
 // ===== SCORING =====
 function calcPoints() {
@@ -690,20 +784,33 @@ function renderDashboard() {
   const sl=['Games Played','Remaining','Biggest Upset','Total Points'];
   document.getElementById('stats-grid').innerHTML = sv.map((v,i)=>`<div class="stat-card"><div class="stat-icon">${si[i]}</div><div class="stat-value">${v}</div><div class="stat-label">${sl[i]}</div></div>`).join('');
 
-  const sorted = PLAYERS.filter(p=>REGIONS.some((r,ri)=>Object.values(state.teams[ri]||{}).some(t=>t.owner===p))).sort((a,b)=>points[b]-points[a]);
+  const proj = projectedPoints || {};
+  const hasProj = Object.keys(proj).length > 0;
+  const sorted = PLAYERS.filter(p=>REGIONS.some((r,ri)=>Object.values(state.teams[ri]||{}).some(t=>t.owner===p))).sort((a,b)=>{
+    if (hasProj) return (proj[b]||0) - (proj[a]||0);
+    return points[b]-points[a];
+  });
   if(!sorted.length) {
     document.getElementById('leaderboard').innerHTML = `<div class="empty-state"><div class="big-icon">&#127936;</div><p>No teams assigned yet. Head to Setup to get started!</p><button class="btn btn-primary" onclick="document.querySelector('[data-view=setup]').click()">Go to Setup</button></div>`;
     return;
   }
+  // Show/hide projections button for commissioner
+  const projBar = document.getElementById('proj-btn-bar');
+  if (projBar) projBar.style.display = isCommissioner ? 'block' : (hasProj ? 'block' : 'none');
+
   const trophies=['&#127942;','&#129352;','&#129353;'];
   document.getElementById('leaderboard').innerHTML = sorted.map((p,i)=>{
     const dn=state.playerNames[p]||p, color=PLAYER_COLORS[PLAYERS.indexOf(p)], teams=getPlayerTeams(p);
+    const projVal = hasProj ? (proj[p]||0).toFixed(1) : '';
     return `<div class="player-card rank-${i+1}" style="animation-delay:${i*80}ms">
       <div class="rank-badge ${i<3?'':'default'}">${i<3?trophies[i]:i+1}</div>
       <div class="player-color-bar" style="background:${color}"></div>
       <div class="player-info"><div class="player-name">${dn}</div>
         <div class="player-teams-list">${teams} <span class="alive-badge">${alive[p]} alive</span></div></div>
-      <div class="player-points"><span class="pts-num">${points[p]}</span><span class="pts-label">points</span></div></div>`;
+      <div class="player-scores">
+        <div class="player-points"><span class="pts-num">${points[p]}</span><span class="pts-label">actual</span></div>
+        ${hasProj ? `<div class="scores-divider"></div><div class="player-projected"><span class="proj-num">${projVal}</span><span class="proj-label">projected</span></div>` : ''}
+      </div></div>`;
   }).join('');
 }
 
@@ -745,7 +852,7 @@ function renderSetup() {
 
 function fillDefault2026() {
   if(!isCommissioner){alert('Only the commissioner can make changes.');return;}
-  const d={0:{1:'Houston',2:'Tennessee',3:'Kentucky',4:'Arizona',5:'Clemson',6:'Illinois',7:'UCLA',8:'Gonzaga',9:'Georgia',10:'Purdue',11:'Drake',12:'UC San Diego',13:'Yale',14:'Lipscomb',15:'Omaha',16:'SIU Edwardsville'},1:{1:'Duke',2:'Alabama',3:'Wisconsin',4:'Arizona St',5:'Oregon',6:'BYU',7:'St. Marys',8:'UConn',9:'Oklahoma',10:'Arkansas',11:'Vanderbilt',12:'Liberty',13:'VCU',14:'Troy',15:'Robert Morris',16:'American'},2:{1:'Auburn',2:'Michigan St',3:'Iowa St',4:'Texas A&M',5:'Michigan',6:'Missouri',7:'Marquette',8:'Louisville',9:'Creighton',10:'New Mexico',11:'San Diego St',12:'Colorado St',13:'Grand Canyon',14:'Montana',15:'Wofford',16:'Norfolk St'},3:{1:'Florida',2:'St. Johns',3:'Texas Tech',4:'Maryland',5:'Memphis',6:'Miss St',7:'Kansas',8:'UNC',9:'Baylor',10:'Pittsburgh',11:'NC State',12:'McNeese',13:'High Point',14:'Akron',15:'N Kentucky',16:'FDU'}};
+  const d={0:{1:'Florida',2:'Houston',3:'Illinois',4:'Nebraska',5:'Vanderbilt',6:'North Carolina',7:'Saint Marys',8:'Clemson',9:'Iowa',10:'Texas A&M',11:'VCU',12:'McNeese',13:'Troy',14:'Penn',15:'Idaho',16:'PV A&M/Lehigh'},1:{1:'Duke',2:'UConn',3:'Michigan St',4:'Kansas',5:'St. Johns',6:'Louisville',7:'UCLA',8:'Ohio St',9:'TCU',10:'UCF',11:'South Florida',12:'Northern Iowa',13:'Cal Baptist',14:'North Dakota St',15:'Furman',16:'Siena'},2:{1:'Michigan',2:'Iowa St',3:'Virginia',4:'Alabama',5:'Texas Tech',6:'Tennessee',7:'Kentucky',8:'Georgia',9:'Saint Louis',10:'Santa Clara',11:'Miami OH/SMU',12:'Akron',13:'Hofstra',14:'Wright St',15:'Tennessee St',16:'UMBC/Howard'},3:{1:'Arizona',2:'Purdue',3:'Gonzaga',4:'Arkansas',5:'Wisconsin',6:'BYU',7:'Miami',8:'Villanova',9:'Utah St',10:'Missouri',11:'Texas/NC State',12:'High Point',13:'Hawaii',14:'Kennesaw St',15:'Queens',16:'LIU'}};
   REGIONS.forEach((r,ri)=>{if(!state.teams[ri])state.teams[ri]={};for(let s=1;s<=16;s++){if(!state.teams[ri][s])state.teams[ri][s]={};state.teams[ri][s].name=d[ri][s];if(!state.teams[ri][s].owner)state.teams[ri][s].owner='';}});
   scheduleSave(); renderAll();
 }
@@ -754,7 +861,8 @@ function resetAll() {
   if(!isCommissioner){alert('Only the commissioner can make changes.');return;}
   if(!confirm('This will erase ALL data. Are you sure?')) return;
   state={playerNames:{},teams:{},results:{},ffResults:{},log:[]};
-  PLAYERS.forEach(p=>state.playerNames[p]=p);
+  const dn={A:'Adam',B:'Brock',C:'Chase',D:'Collin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
+  PLAYERS.forEach(p=>state.playerNames[p]=dn[p]||p);
   REGIONS.forEach((r,ri)=>{state.teams[ri]={};for(let s=1;s<=16;s++)state.teams[ri][s]={name:'',owner:''};});
   saveToServer(); renderAll();
 }
@@ -881,6 +989,424 @@ function renderLog() {
     const oc=e.owner?PLAYER_COLORS[PLAYERS.indexOf(e.owner)]:'var(--text2)';
     return`<div class="log-entry"><span class="log-round">${e.round}</span><span class="seed-badge" style="font-size:0.72em">${e.seed}</span><span>${e.team} <span style="color:var(--text2)">(${e.region})</span></span><span style="color:${oc};font-size:0.82em;font-weight:600;">${on}</span><span style="color:var(--text2);font-size:0.75em;">${e.multiplier||''}</span><span class="log-points">+${e.points}</span></div>`;
   }).join('');
+}
+
+// ===== PLAYERS VIEW =====
+let selectedPlayer = null;
+
+function renderPlayers() {
+  const listEl = document.getElementById('players-list');
+  const detailEl = document.getElementById('player-detail');
+
+  if (selectedPlayer) {
+    listEl.style.display = 'none';
+    detailEl.style.display = 'block';
+    renderPlayerDetail(selectedPlayer);
+    return;
+  }
+
+  listEl.style.display = 'block';
+  detailEl.style.display = 'none';
+
+  const points = calcPoints();
+  const alive = getTeamsAlive();
+  const proj = projectedPoints || {};
+  const hasProj = Object.keys(proj).length > 0;
+  const sorted = PLAYERS.filter(p => REGIONS.some((r,ri) => Object.values(state.teams[ri]||{}).some(t => t.owner===p))).sort((a,b) => points[b] - points[a]);
+
+  if (!sorted.length) {
+    listEl.innerHTML = '<div class="empty-state"><div class="big-icon">&#128101;</div><p>No players yet. Head to Setup to assign teams!</p></div>';
+    return;
+  }
+
+  listEl.innerHTML = '<div class="section-title"><span class="emoji">&#128101;</span> Players</div><div class="players-grid">' +
+    sorted.map((p, i) => {
+      const dn = state.playerNames[p] || p;
+      const color = PLAYER_COLORS[PLAYERS.indexOf(p)];
+      const teamCount = [];
+      REGIONS.forEach((r, ri) => { for (let s=1; s<=16; s++) if (state.teams[ri]?.[s]?.owner === p && state.teams[ri][s].name) teamCount.push(1); });
+      return `<div class="player-list-card" onclick="selectedPlayer='${p}';renderPlayers();">
+        <div class="player-list-avatar" style="background:${color}">${dn.charAt(0)}</div>
+        <div class="player-list-info">
+          <div class="player-list-name">${dn}</div>
+          <div class="player-list-meta">${teamCount.length} teams &bull; ${alive[p]} alive</div>
+        </div>
+        <div class="player-list-pts"><span class="pnum">${points[p]}</span></div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+function renderPlayerDetail(p) {
+  const detailEl = document.getElementById('player-detail');
+  const dn = state.playerNames[p] || p;
+  const color = PLAYER_COLORS[PLAYERS.indexOf(p)];
+  const points = calcPoints();
+  const alive = getTeamsAlive();
+  const proj = projectedPoints || {};
+  const hasProj = Object.keys(proj).length > 0;
+  const rank = PLAYERS.filter(pl => REGIONS.some((r,ri) => Object.values(state.teams[ri]||{}).some(t => t.owner===pl)))
+    .sort((a,b) => points[b] - points[a]).indexOf(p) + 1;
+
+  // Gather player's teams
+  const myTeams = [];
+  REGIONS.forEach((r, ri) => {
+    for (let s = 1; s <= 16; s++) {
+      const t = state.teams[ri]?.[s];
+      if (t?.owner === p && t.name) {
+        const nextRound = getTeamCurrentRound(ri, s);
+        const isElim = nextRound < 0;
+        let teamPts = 0;
+        // Calculate points this team has earned
+        for (let round = 0; round < 4; round++) {
+          if (state.results[ri]?.[round]) {
+            Object.entries(state.results[ri][round]).forEach(([mi, ws]) => {
+              if (ws === s) teamPts += s * (round + 1);
+            });
+          }
+        }
+        // FF points
+        for (let fr = 0; fr < 2; fr++) {
+          if (state.ffResults[fr]) {
+            Object.values(state.ffResults[fr]).forEach(wk => {
+              if (wk === `${ri}-${s}`) teamPts += s * (fr + 5);
+            });
+          }
+        }
+        myTeams.push({ seed: s, name: t.name, region: r, ri, alive: !isElim, points: teamPts, nextRound });
+      }
+    }
+  });
+
+  // Gather game log for this player's teams
+  const gameLog = [];
+  const roundNames = ['R64','R32','Sweet 16','Elite 8','Final Four','Championship'];
+  REGIONS.forEach((r, ri) => {
+    for (let round = 0; round < 4; round++) {
+      if (!state.results[ri]?.[round]) continue;
+      const o = [[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
+      Object.entries(state.results[ri][round]).forEach(([mi, winnerSeed]) => {
+        const teams = getMatchupTeams(ri, round, parseInt(mi), o);
+        if (!teams[0] || !teams[1]) return;
+        const myTeam = teams.find(t => t && t.seed && state.teams[ri]?.[t.seed]?.owner === p);
+        if (!myTeam) return;
+        const won = winnerSeed === myTeam.seed;
+        const opponent = teams.find(t => t && t.seed !== myTeam.seed);
+        const multiplier = round + 1;
+        const pts = won ? myTeam.seed * multiplier : 0;
+        gameLog.push({
+          round: roundNames[round], region: r,
+          team: myTeam.name || `${myTeam.seed}-seed`, seed: myTeam.seed,
+          opponent: opponent ? (opponent.name || `${opponent.seed}-seed`) : 'TBD',
+          opSeed: opponent?.seed || 0,
+          won, points: pts, multiplier
+        });
+      });
+    }
+  });
+  // FF games
+  for (let fr = 0; fr < 2; fr++) {
+    if (!state.ffResults[fr]) continue;
+    Object.entries(state.ffResults[fr]).forEach(([mi, wk]) => {
+      if (!wk) return;
+      const [wri, wseed] = wk.split('-').map(Number);
+      // Check if this involves player's team
+      const semis = [[0,1],[2,3]];
+      if (fr === 0) {
+        const [ri1, ri2] = semis[parseInt(mi)];
+        const w1 = getRegionWinner(ri1), w2 = getRegionWinner(ri2);
+        const candidates = [{ri:ri1,seed:w1},{ri:ri2,seed:w2}];
+        const myEntry = candidates.find(c => c.seed !== null && state.teams[c.ri]?.[c.seed]?.owner === p);
+        if (!myEntry) return;
+        const won = wk === `${myEntry.ri}-${myEntry.seed}`;
+        const opp = candidates.find(c => c !== myEntry);
+        const pts = won ? myEntry.seed * 5 : 0;
+        gameLog.push({
+          round: 'Final Four', region: REGIONS[myEntry.ri],
+          team: state.teams[myEntry.ri]?.[myEntry.seed]?.name || `${myEntry.seed}-seed`, seed: myEntry.seed,
+          opponent: opp?.seed !== null ? (state.teams[opp.ri]?.[opp.seed]?.name || 'TBD') : 'TBD',
+          opSeed: opp?.seed || 0, won, points: pts, multiplier: 5
+        });
+      } else {
+        const w1 = state.ffResults[0]?.[0], w2 = state.ffResults[0]?.[1];
+        const candidates = [w1, w2].filter(Boolean).map(k => {const[ri,s]=k.split('-').map(Number);return{ri,seed:s};});
+        const myEntry = candidates.find(c => state.teams[c.ri]?.[c.seed]?.owner === p);
+        if (!myEntry) return;
+        const won = wk === `${myEntry.ri}-${myEntry.seed}`;
+        const opp = candidates.find(c => c !== myEntry);
+        const pts = won ? myEntry.seed * 6 : 0;
+        gameLog.push({
+          round: 'Championship', region: REGIONS[myEntry.ri],
+          team: state.teams[myEntry.ri]?.[myEntry.seed]?.name || `${myEntry.seed}-seed`, seed: myEntry.seed,
+          opponent: opp ? (state.teams[opp.ri]?.[opp.seed]?.name || 'TBD') : 'TBD',
+          opSeed: opp?.seed || 0, won, points: pts, multiplier: 6
+        });
+      }
+    });
+  }
+
+  // Round-by-round summary
+  const roundPts = {};
+  roundNames.forEach(r => roundPts[r] = 0);
+  gameLog.forEach(g => { if (g.won) roundPts[g.round] = (roundPts[g.round]||0) + g.points; });
+
+  let html = `<div class="pd-back" onclick="selectedPlayer=null;renderPlayers();">&#8592; Back to Players</div>`;
+  html += `<div class="pd-header">
+    <div class="pd-avatar" style="background:${color}">${dn.charAt(0)}</div>
+    <div><div class="pd-name">${dn}</div><div class="pd-rank">Rank #${rank} &bull; ${alive[p]} teams alive</div></div>
+    <div class="pd-scores-row">
+      <div class="pd-score-box"><div class="pd-score-val actual">${points[p]}</div><div class="pd-score-lbl">Actual</div></div>
+      ${hasProj ? `<div class="pd-score-box"><div class="pd-score-val projected">${(proj[p]||0).toFixed(1)}</div><div class="pd-score-lbl">Projected</div></div>` : ''}
+    </div></div>`;
+
+  // Teams section
+  html += `<div class="pd-section"><h3>&#127936; Teams (${myTeams.length})</h3>`;
+  myTeams.sort((a,b) => b.points - a.points).forEach(t => {
+    const seedColor = t.alive ? 'var(--green)' : 'var(--red)';
+    html += `<div class="pd-team-row">
+      <div class="pd-team-seed" style="background:${seedColor}22;color:${seedColor}">${t.seed}</div>
+      <div class="pd-team-name">${t.name}</div>
+      <div class="pd-team-region">${t.region}</div>
+      <span class="pd-team-status ${t.alive?'alive':'elim'}">${t.alive?'Alive':'Eliminated'}</span>
+      <div class="pd-team-pts" style="color:${t.points>0?'var(--accent)':'var(--text2)'}">${t.points > 0 ? '+'+t.points : '0'}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Game Log
+  html += `<div class="pd-section"><h3>&#128203; Game Results (${gameLog.length})</h3>`;
+  if (gameLog.length === 0) {
+    html += '<div style="color:var(--text2);padding:8px 0;">No games played yet.</div>';
+  } else {
+    gameLog.forEach(g => {
+      html += `<div class="pd-game-row">
+        <div class="pd-game-round">${g.round}</div>
+        <div class="pd-game-matchup"><strong>${g.team}</strong> <span style="color:var(--text2);font-size:0.85em">(${g.seed})</span> vs ${g.opponent} <span style="color:var(--text2);font-size:0.85em">(${g.opSeed})</span></div>
+        <span class="pd-game-result ${g.won?'win':'loss'}">${g.won?'WIN':'LOSS'}</span>
+        <div class="pd-game-pts" style="color:${g.won?'var(--green)':'var(--text2)'}">${g.won?'+'+g.points+' ('+g.seed+'×'+g.multiplier+')':'—'}</div>
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  // Round-by-round breakdown
+  html += `<div class="pd-section"><h3>&#128200; Points by Round</h3><div class="pd-round-summary">`;
+  roundNames.forEach(r => {
+    const v = roundPts[r] || 0;
+    html += `<div class="pd-round-box"><div class="pd-round-name">${r}</div><div class="pd-round-val" style="color:${v>0?'var(--accent)':'var(--text2)'}">${v}</div></div>`;
+  });
+  html += '</div></div>';
+
+  detailEl.innerHTML = html;
+}
+
+// ===== PROJECTIONS =====
+let projectedPoints = {};  // { playerLetter: totalProjected }
+let oddsCache = null;      // cached odds data
+
+function moneylineToProb(ml) {
+  // Convert American moneyline to implied probability
+  if (ml < 0) return Math.abs(ml) / (Math.abs(ml) + 100);
+  if (ml > 0) return 100 / (ml + 100);
+  return 0.5;
+}
+
+function normalizeOddsName(name) {
+  return (name || '').toLowerCase()
+    .replace(/\bstate\b/g, 'st')
+    .replace(/\buniversity\b/g, '')
+    .replace(/[.\-'()]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findOddsForTeam(teamName) {
+  // Search odds cache for a game involving this team, return win probability
+  if (!oddsCache || !Array.isArray(oddsCache)) return null;
+  const norm = normalizeOddsName(teamName);
+
+  for (const event of oddsCache) {
+    // Check if this team is in this event
+    const homeNorm = normalizeOddsName(event.home_team);
+    const awayNorm = normalizeOddsName(event.away_team);
+    let isHome = false, isAway = false;
+    if (homeNorm === norm || homeNorm.includes(norm) || norm.includes(homeNorm)) isHome = true;
+    if (awayNorm === norm || awayNorm.includes(norm) || norm.includes(awayNorm)) isAway = true;
+
+    if (!isHome && !isAway) continue;
+
+    // Find the best bookmaker odds (use first available)
+    for (const bk of (event.bookmakers || [])) {
+      for (const market of (bk.markets || [])) {
+        if (market.key !== 'h2h') continue;
+        const outcomes = market.outcomes || [];
+        const homeOutcome = outcomes.find(o => normalizeOddsName(o.name) === homeNorm || normalizeOddsName(o.name).includes(homeNorm) || homeNorm.includes(normalizeOddsName(o.name)));
+        const awayOutcome = outcomes.find(o => normalizeOddsName(o.name) === awayNorm || normalizeOddsName(o.name).includes(awayNorm) || awayNorm.includes(normalizeOddsName(o.name)));
+
+        if (isHome && homeOutcome) return moneylineToProb(homeOutcome.price);
+        if (isAway && awayOutcome) return moneylineToProb(awayOutcome.price);
+      }
+    }
+  }
+  return null; // No odds found for this team
+}
+
+function isTeamEliminated(ri, seed) {
+  // Check if a team has lost in any round
+  const o = [[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
+  for (let round = 0; round < 4; round++) {
+    const mi = getMatchIndex(ri, round, seed);
+    if (mi === null) return true; // Can't find path = eliminated earlier
+    if (state.results[ri]?.[round]?.[mi] !== undefined) {
+      if (state.results[ri][round][mi] !== seed) return true; // Lost this round
+    } else {
+      return false; // Round not played yet, still alive
+    }
+  }
+  // Check Final Four
+  const rw = getRegionWinner(ri);
+  if (rw !== null && rw !== seed) return true;
+  if (rw === seed) {
+    const fmi = getFFMatchIndex(0, ri);
+    if (fmi !== null && state.ffResults[0]?.[fmi] !== undefined) {
+      if (state.ffResults[0][fmi] !== `${ri}-${seed}`) return true;
+      // Won FF, check championship
+      if (state.ffResults[1]?.[0] !== undefined) {
+        if (state.ffResults[1][0] !== `${ri}-${seed}`) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function getTeamCurrentRound(ri, seed) {
+  // Returns the next round this team needs to play (0-5), or -1 if eliminated, or 6 if champion
+  const o = [[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
+  for (let round = 0; round < 4; round++) {
+    const mi = getMatchIndex(ri, round, seed);
+    if (mi === null) return -1;
+    if (state.results[ri]?.[round]?.[mi] !== undefined) {
+      if (state.results[ri][round][mi] !== seed) return -1; // Eliminated
+    } else {
+      return round; // This is the next round to play
+    }
+  }
+  // Survived all regional rounds, check FF
+  const rw = getRegionWinner(ri);
+  if (rw !== seed) return -1;
+  const fmi = getFFMatchIndex(0, ri);
+  if (fmi !== null) {
+    if (state.ffResults[0]?.[fmi] !== undefined) {
+      if (state.ffResults[0][fmi] !== `${ri}-${seed}`) return -1;
+      // Won FF, check championship
+      if (state.ffResults[1]?.[0] !== undefined) {
+        if (state.ffResults[1][0] !== `${ri}-${seed}`) return -1;
+        return 6; // Champion!
+      }
+      return 5; // Playing championship
+    }
+    return 4; // Playing Final Four
+  }
+  return 4;
+}
+
+function calcProjections() {
+  const points = calcPoints(); // Actual points so far
+  const proj = {};
+  PLAYERS.forEach(p => proj[p] = points[p] || 0);
+
+  // For each player's alive teams, calculate expected future points
+  REGIONS.forEach((r, ri) => {
+    for (let seed = 1; seed <= 16; seed++) {
+      const t = state.teams[ri]?.[seed];
+      if (!t?.owner || !t.name) continue;
+
+      const nextRound = getTeamCurrentRound(ri, seed);
+      if (nextRound < 0) continue; // Eliminated
+      if (nextRound >= 6) continue; // Already champion, points already counted
+
+      // Get win probability from odds
+      const winProb = findOddsForTeam(t.name);
+      if (winProb === null) continue; // No odds available, skip projection
+
+      // Project forward from current round through championship
+      // For the current game, use real odds
+      // For future rounds, compound probability decreases (use winProb as base, diminish for later rounds)
+      let cumulativeProb = 1.0;
+
+      for (let futureRound = nextRound; futureRound < 6; futureRound++) {
+        let roundProb;
+        if (futureRound === nextRound) {
+          // Use actual odds for the immediate next game
+          roundProb = winProb;
+        } else {
+          // For future rounds beyond the current, estimate using the same win prob
+          // scaled down slightly (teams face tougher opponents in later rounds)
+          roundProb = winProb * 0.85; // Discount for uncertainty
+        }
+
+        cumulativeProb *= roundProb;
+        const multiplier = futureRound + 1;
+        const expectedPts = cumulativeProb * seed * multiplier;
+
+        proj[t.owner] = (proj[t.owner] || 0) + expectedPts;
+      }
+    }
+  });
+
+  return proj;
+}
+
+async function fetchProjections() {
+  if (!isCommissioner) { alert('Only the commissioner can update projections.'); return; }
+
+  const btn = document.getElementById('proj-btn');
+  const statusEl = document.getElementById('proj-status');
+  const remainEl = document.getElementById('proj-remaining');
+  btn.disabled = true;
+  btn.textContent = 'Fetching odds...';
+
+  try {
+    const res = await fetch('/api/odds');
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to fetch odds');
+    }
+    const data = await res.json();
+    oddsCache = data.odds || [];
+    const remaining = data.remaining;
+    const used = data.used;
+
+    // Calculate projections
+    projectedPoints = calcProjections();
+
+    statusEl.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+    remainEl.textContent = `(${remaining} API calls remaining this month)`;
+
+    // Count how many teams got odds
+    let matched = 0, total = 0;
+    REGIONS.forEach((r, ri) => {
+      for (let s = 1; s <= 16; s++) {
+        const t = state.teams[ri]?.[s];
+        if (!t?.name) continue;
+        const nr = getTeamCurrentRound(ri, s);
+        if (nr < 0 || nr >= 6) continue;
+        total++;
+        if (findOddsForTeam(t.name) !== null) matched++;
+      }
+    });
+    statusEl.textContent += ` | Odds found for ${matched}/${total} alive teams`;
+
+    // Save projections to server so everyone can see them
+    state.projections = projectedPoints;
+    scheduleSave();
+    renderAll();
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
+    remainEl.textContent = '';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '&#128202; Update Projections';
 }
 
 // ===== ESPN SYNC =====
