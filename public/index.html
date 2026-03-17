@@ -207,7 +207,7 @@
   .player-projected .proj-num { color: var(--purple); }
   .player-projected .proj-label { font-size: 0.4em; color: var(--text2); font-weight: 500; display: block; text-transform: uppercase; letter-spacing: 1px; }
   .scores-divider { width: 1px; height: 36px; background: var(--border); flex-shrink: 0; }
-  .proj-btn-bar { text-align: center; padding: 12px; margin-bottom: 12px; }
+  .proj-btn-bar { text-align: center; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
   .proj-btn-bar button { font-size: 0.95em; padding: 8px 20px; }
   .proj-status { margin-left: 10px; color: var(--text2); font-size: 0.82em; }
   .proj-remaining { color: var(--green); font-size: 0.78em; margin-left: 8px; }
@@ -441,16 +441,15 @@
   <div class="loading-text">Loading tournament data...</div>
 </div>
 
-<div class="connection-status online" id="conn-status">
-  <span class="dot"></span> <span id="conn-text">Connected</span>
-</div>
-
 <div class="particles" id="particles"></div>
 
 <div class="commissioner-bar" id="comm-bar">
   <span class="comm-status" id="comm-status">View Only</span>
   <input type="password" class="comm-input" id="comm-password" placeholder="Commissioner password" onkeydown="if(event.key==='Enter')commLogin()">
   <button class="comm-btn" id="comm-btn" onclick="commLogin()">Unlock</button>
+  <div class="connection-status online" id="conn-status" style="position:static;margin-left:10px;">
+    <span class="dot"></span> <span id="conn-text">Connected</span>
+  </div>
 </div>
 
 <header>
@@ -478,6 +477,7 @@
     <div class="tournament-progress" id="progress-bar"></div>
     <div class="stats-grid" id="stats-grid"></div>
     <div id="proj-btn-bar" class="proj-btn-bar" style="display:none;">
+      <button class="btn btn-primary" onclick="syncESPN()" id="dash-sync-btn" style="font-size:0.95em;padding:8px 20px;">&#127936; Sync Results from ESPN</button>
       <button class="btn btn-secondary" onclick="fetchProjections()" id="proj-btn">&#128202; Update Projections</button>
       <span class="proj-status" id="proj-status"></span>
       <span class="proj-remaining" id="proj-remaining"></span>
@@ -506,14 +506,12 @@
       <h2>Team Setup</h2>
       <p>Enter team names and assign each to a player. Use "Fill 2026 Teams" to auto-populate this year's bracket.</p>
       <div id="regions-setup"></div>
-      <div class="btn-group">
+      <div class="btn-group" id="commissioner-tools" style="display:none;margin-top:12px;">
         <button class="btn btn-primary" onclick="saveToServer()">Save Setup</button>
         <button class="btn btn-secondary" onclick="fillDefault2026()">Fill 2026 Teams</button>
-        <button class="btn btn-danger" onclick="resetAll()">Reset Everything</button>
-      </div>
-      <div class="btn-group" id="commissioner-tools" style="display:none;margin-top:12px;">
         <button class="btn btn-secondary" onclick="fillPlayerNames()">Add Players' Names</button>
         <button class="btn btn-secondary" onclick="randomTeamAssignment()">Random Team Assignment (Test)</button>
+        <button class="btn btn-danger" onclick="resetAll()">Reset Everything</button>
       </div>
     </div>
   </div>
@@ -581,6 +579,7 @@ async function commLogin() {
       document.getElementById('comm-btn').textContent = 'Lock';
       document.getElementById('comm-btn').classList.add('logout');
       document.getElementById('comm-btn').onclick = commLogout;
+      document.getElementById('conn-status').style.display = 'none';
       renderAll();
     } else {
       alert('Wrong password!');
@@ -599,6 +598,7 @@ function commLogout() {
   document.getElementById('comm-btn').textContent = 'Unlock';
   document.getElementById('comm-btn').classList.remove('logout');
   document.getElementById('comm-btn').onclick = commLogin;
+  document.getElementById('conn-status').style.display = 'flex';
   renderAll();
 }
 
@@ -819,7 +819,7 @@ function renderDashboard() {
   }
   // Show/hide projections button for commissioner
   const projBar = document.getElementById('proj-btn-bar');
-  if (projBar) projBar.style.display = isCommissioner ? 'block' : 'none';
+  if (projBar) projBar.style.display = isCommissioner ? 'flex' : 'none';
 
   const trophies=['&#127942;','&#129352;','&#129353;'];
   document.getElementById('leaderboard').innerHTML = sorted.map((p,i)=>{
@@ -1681,13 +1681,13 @@ async function syncESPN() {
   if (!isCommissioner) { alert('Only the commissioner can sync results.'); return; }
 
   const btn = document.getElementById('sync-btn');
+  const dashBtn = document.getElementById('dash-sync-btn');
   const statusEl = document.getElementById('sync-status');
   const logEl = document.getElementById('sync-log');
-  btn.disabled = true;
-  btn.textContent = 'Fetching scores...';
-  statusEl.textContent = '';
-  logEl.style.display = 'block';
-  logEl.innerHTML = '<div style="color:var(--text2)">Fetching games from ESPN...</div>';
+  if (btn) { btn.disabled = true; btn.textContent = 'Fetching scores...'; }
+  if (dashBtn) { dashBtn.disabled = true; dashBtn.textContent = 'Fetching scores...'; }
+  if (statusEl) statusEl.textContent = '';
+  if (logEl) { logEl.style.display = 'block'; logEl.innerHTML = '<div style="color:var(--text2)">Fetching games from ESPN...</div>'; }
 
   try {
     const res = await fetch('/api/espn-scores');
@@ -1808,8 +1808,8 @@ async function syncESPN() {
     logEl.innerHTML = `<div style="color:var(--red)">Error fetching scores: ${err.message}. Try again in a moment.</div>`;
   }
 
-  btn.disabled = false;
-  btn.innerHTML = '&#127936; Sync Results from ESPN';
+  if (btn) { btn.disabled = false; btn.innerHTML = '&#127936; Sync Results from ESPN'; }
+  if (dashBtn) { dashBtn.disabled = false; dashBtn.innerHTML = '&#127936; Sync Results from ESPN'; }
 }
 
 // Show/hide sync bar based on commissioner status
