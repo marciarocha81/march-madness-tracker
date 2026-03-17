@@ -1219,13 +1219,53 @@ function addLog(ri,round,seed) {
 }
 
 // ===== LOG =====
+// Rebuilds the log dynamically from actual bracket results (never stale)
 function renderLog() {
   const list=document.getElementById('points-log-list');
-  if(!state.log?.length){list.innerHTML='<div class="empty-state"><div class="big-icon">&#128203;</div><p>No results recorded yet. Go to the Bracket tab and click winning teams.</p></div>';return;}
-  list.innerHTML=[...state.log].reverse().map(e=>{
-    const on=e.owner?(state.playerNames[e.owner]||e.owner):'Unowned';
-    const oc=e.owner?PLAYER_COLORS[PLAYERS.indexOf(e.owner)]:'var(--text2)';
-    return`<div class="log-entry"><span class="log-round">${e.round}</span><span class="seed-badge" style="font-size:0.72em">${e.seed}</span><span>${e.team} <span style="color:var(--text2)">(${e.region})</span></span><span style="color:${oc};font-size:0.82em;font-weight:600;">${on}</span><span style="color:var(--text2);font-size:0.75em;">${e.multiplier||''}</span><span class="log-points">+${e.points}</span></div>`;
+  const rn=['R64','R32','Sweet 16','Elite 8','Final Four','Championship'];
+  const entries = [];
+
+  // Scan regional rounds
+  REGIONS.forEach((region, ri) => {
+    for (let round = 0; round < 4; round++) {
+      if (!state.results[ri]?.[round]) continue;
+      Object.entries(state.results[ri][round]).forEach(([mi, seed]) => {
+        const t = state.teams[ri]?.[seed];
+        if (!t) return;
+        const multiplier = round + 1;
+        entries.push({ region, round: rn[round], seed, team: t.name, owner: t.owner, points: seed * multiplier, multiplier: multiplier + 'x' });
+      });
+    }
+  });
+
+  // Scan Final Four + Championship
+  if (state.ffResults[0]) {
+    Object.entries(state.ffResults[0]).forEach(([mi, wk]) => {
+      const [ri, seed] = wk.split('-').map(Number);
+      const t = state.teams[ri]?.[seed];
+      if (!t) return;
+      entries.push({ region: REGIONS[ri], round: 'Final Four', seed, team: t.name, owner: t.owner, points: seed * 5, multiplier: '5x' });
+    });
+  }
+  if (state.ffResults[1]?.[0]) {
+    const [ri, seed] = state.ffResults[1][0].split('-').map(Number);
+    const t = state.teams[ri]?.[seed];
+    if (t) entries.push({ region: REGIONS[ri], round: 'Championship', seed, team: t.name, owner: t.owner, points: seed * 6, multiplier: '6x' });
+  }
+
+  if (!entries.length) {
+    list.innerHTML='<div class="empty-state"><div class="big-icon">&#128203;</div><p>No results recorded yet. Go to the Bracket tab and click winning teams.</p></div>';
+    return;
+  }
+
+  // Sort by round order, then seed
+  const roundOrder = {'R64':0,'R32':1,'Sweet 16':2,'Elite 8':3,'Final Four':4,'Championship':5};
+  entries.sort((a,b) => (roundOrder[a.round]||0) - (roundOrder[b.round]||0) || a.seed - b.seed);
+
+  list.innerHTML = entries.reverse().map(e => {
+    const on = e.owner ? (state.playerNames[e.owner]||e.owner) : 'Unowned';
+    const oc = e.owner ? PLAYER_COLORS[PLAYERS.indexOf(e.owner)] : 'var(--text2)';
+    return `<div class="log-entry"><span class="log-round">${e.round}</span><span class="seed-badge" style="font-size:0.72em">${e.seed}</span><span>${e.team} <span style="color:var(--text2)">(${e.region})</span></span><span style="color:${oc};font-size:0.82em;font-weight:600;">${on}</span><span style="color:var(--text2);font-size:0.75em;">${e.multiplier||''}</span><span class="log-points">+${e.points}</span></div>`;
   }).join('');
 }
 
