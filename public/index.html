@@ -485,7 +485,7 @@
     <button data-view="players">Players</button>
     <button data-view="setup">Setup</button>
     <button data-view="log">Log</button>
-    <button data-view="debug" id="debug-nav-btn" style="display:none;">Proj. Data</button>
+    <button data-view="debug" id="debug-nav-btn">Projection Raw Data</button>
   </nav>
 </header>
 
@@ -718,32 +718,57 @@ async function init() {
 function setupNav() {
   document.querySelectorAll('nav button').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(btn.dataset.view).classList.add('active');
-      if (btn.dataset.view !== 'players') selectedPlayer = null;
-      renderAll();
+      const viewId = btn.dataset.view;
+      switchToTab(viewId);
+      // Push history entry for this tab
+      history.pushState({ tab: viewId }, '', '#' + viewId);
     });
   });
 
-  // Browser back button support for player detail view
+  // Browser back/forward button support for ALL navigation
   window.addEventListener('popstate', (e) => {
     if (e.state && e.state.player) {
+      // Navigating back to a player detail view
       selectedPlayer = e.state.player;
-    } else {
+      switchToTab('players', true);
+    } else if (e.state && e.state.tab) {
+      // Navigating back to a specific tab
       selectedPlayer = null;
+      switchToTab(e.state.tab, true);
+    } else {
+      // No state — go to dashboard (initial page) or read from hash
+      selectedPlayer = null;
+      const hash = window.location.hash.replace('#', '');
+      switchToTab(hash || 'dashboard', true);
     }
-    renderPlayers();
   });
+
+  // On page load, check URL hash to restore the right tab
+  const initialHash = window.location.hash.replace('#', '');
+  if (initialHash && document.getElementById(initialHash)) {
+    switchToTab(initialHash, true);
+    history.replaceState({ tab: initialHash }, '', '#' + initialHash);
+  } else {
+    history.replaceState({ tab: 'dashboard' }, '', '#dashboard');
+  }
+}
+
+// Switch to a tab view without pushing history (used by popstate and direct calls)
+function switchToTab(viewId, skipHistory) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const btn = document.querySelector(`nav button[data-view="${viewId}"]`);
+  const view = document.getElementById(viewId);
+  if (btn) btn.classList.add('active');
+  if (view) view.classList.add('active');
+  if (viewId !== 'players') selectedPlayer = null;
+  renderAll();
 }
 
 function renderAll() {
-  // Recalculate projections on every render if odds are cached, so numbers stay in sync with results
-  if (oddsCache && oddsCache.length > 0) {
-    projectedPoints = calcProjections();
-    state.projections = projectedPoints;
-  }
+  // Always recalculate projections — uses API odds when available, historical probabilities as fallback
+  projectedPoints = calcProjections();
+  state.projections = projectedPoints;
   renderDashboard(); renderSetup(); renderBracket(); renderLog(); renderPlayers(); updateSyncBar(); renderDebug();
 }
 
@@ -1118,7 +1143,7 @@ function renderPlayers() {
       const color = PLAYER_COLORS[PLAYERS.indexOf(p)];
       const teamCount = [];
       REGIONS.forEach((r, ri) => { for (let s=1; s<=16; s++) if (state.teams[ri]?.[s]?.owner === p && state.teams[ri][s].name) teamCount.push(1); });
-      return `<div class="player-list-card" onclick="selectedPlayer='${p}';history.pushState({player:'${p}'},'');renderPlayers();">
+      return `<div class="player-list-card" onclick="selectedPlayer='${p}';history.pushState({player:'${p}',tab:'players'},'','#player-'+p);renderPlayers();">
         <div class="player-list-avatar" style="background:${color}">${dn.charAt(0)}</div>
         <div class="player-list-info">
           <div class="player-list-name">${dn}</div>
@@ -1305,15 +1330,12 @@ function renderPlayerDetail(p) {
     }
 
     // Add projections for future rounds (only for alive teams)
+    // Uses hybrid model: API odds for next game + historical seed-based probabilities for later rounds
     if (t.alive && t.nextRound >= 0 && t.nextRound < 6) {
-      const winProb = findOddsForTeam(t.name);
-      if (winProb !== null) {
-        let cumProb = 1.0;
-        for (let fr = t.nextRound; fr < 6; fr++) {
-          let rProb = (fr === t.nextRound) ? winProb : winProb * 0.85;
-          cumProb *= rProb;
-          data[fr].projected = cumProb * t.seed * roundMultipliers[fr];
-        }
+      const winProb = findOddsForTeam(t.name); // null if no API odds
+      for (let fr = t.nextRound; fr < 6; fr++) {
+        const cumProb = getCumulativeAdvanceProb(t.seed, fr, t.nextRound, winProb);
+        data[fr].projected = cumProb * t.seed * roundMultipliers[fr];
       }
     }
     return data;
@@ -1427,6 +1449,54 @@ function renderPlayerDetail(p) {
 let projectedPoints = {};  // { playerLetter: totalProjected }
 let oddsCache = null;      // cached odds data
 
+// Historical cumulative advancement probabilities by seed (NCAA tournament since 1985)
+// Each array: [P(win R64), P(win thru R32), P(win thru S16), P(win thru E8), P(win thru FF), P(win tournament)]
+// These are CUMULATIVE - probability of advancing past each round from the start
+const HISTORICAL_ADVANCE_PROB = {
+  1:  [0.99, 0.85, 0.60, 0.42, 0.28, 0.15],
+  2:  [0.94, 0.73, 0.48, 0.32, 0.18, 0.08],
+  3:  [0.85, 0.58, 0.34, 0.20, 0.10, 0.04],
+  4:  [0.79, 0.52, 0.30, 0.16, 0.08, 0.03],
+  5:  [0.65, 0.38, 0.19, 0.09, 0.04, 0.015],
+  6:  [0.63, 0.36, 0.17, 0.08, 0.035, 0.013],
+  7:  [0.60, 0.30, 0.14, 0.06, 0.025, 0.01],
+  8:  [0.50, 0.25, 0.11, 0.05, 0.02, 0.008],
+  9:  [0.50, 0.22, 0.09, 0.04, 0.017, 0.006],
+  10: [0.40, 0.18, 0.07, 0.03, 0.012, 0.004],
+  11: [0.37, 0.16, 0.065, 0.028, 0.011, 0.004],
+  12: [0.35, 0.14, 0.055, 0.022, 0.008, 0.003],
+  13: [0.21, 0.065, 0.02, 0.007, 0.002, 0.001],
+  14: [0.15, 0.04, 0.012, 0.004, 0.001, 0.0003],
+  15: [0.07, 0.02, 0.006, 0.002, 0.0005, 0.0001],
+  16: [0.02, 0.004, 0.001, 0.0003, 0.0001, 0.00003]
+};
+
+// Get cumulative probability of advancing through round R given team starts at startRound
+// If startRound=0 and apiWinProb is available, uses API for first game, historical for rest
+function getCumulativeAdvanceProb(seed, round, startRound, apiWinProb) {
+  const hist = HISTORICAL_ADVANCE_PROB[seed] || HISTORICAL_ADVANCE_PROB[16];
+  if (round < startRound) return 1.0; // Already past this round
+
+  if (apiWinProb !== null) {
+    // Hybrid: API odds for next game, historical for subsequent rounds
+    if (round === startRound) {
+      return apiWinProb;
+    }
+    // For rounds beyond next: P(win next via API) × P(advance thru round | won next round)
+    // P(advance thru round | won next round) = hist[round] / hist[startRound]
+    const histCumFromNextRound = hist[round];
+    const histCumAtNextRound = hist[startRound]; // = P(advanced past startRound)
+    if (histCumAtNextRound <= 0) return 0;
+    return apiWinProb * (histCumFromNextRound / histCumAtNextRound);
+  } else {
+    // No API odds: use pure historical
+    // P(advance thru round | reached startRound) = hist[round] / hist[startRound - 1]
+    const histCumForStart = startRound > 0 ? hist[startRound - 1] : 1.0;
+    if (histCumForStart <= 0) return 0;
+    return hist[round] / histCumForStart;
+  }
+}
+
 function moneylineToProb(ml) {
   // Convert American moneyline to implied probability
   if (ml < 0) return Math.abs(ml) / (Math.abs(ml) + 100);
@@ -1499,6 +1569,9 @@ const TEAM_NAME_MAP = {
   'wisconsin': ['wisconsin badgers'],
   'byu': ['byu cougars'],
   'miami': ['miami hurricanes'],
+  'north carolina': ['north carolina tar heels'],
+  'michigan': ['michigan wolverines'],
+  'tennessee': ['tennessee volunteers'],
   'villanova': ['villanova wildcats'],
   'utah st': ['utah st aggies', 'utah state aggies'],
   'missouri': ['missouri tigers'],
@@ -1518,8 +1591,9 @@ function findOddsForTeam(teamName) {
   // Get possible API names for this bracket team
   const possibleNames = TEAM_NAME_MAP[bracketName] || [];
 
-  // Also try the bracket name directly as fallback
-  const allNames = [...possibleNames, bracketName];
+  // Only use map names if available; fallback to bracket name ONLY if no map entry exists
+  // This prevents "iowa" from matching "Iowa State", "illinois" matching "Illinois St", etc.
+  const allNames = possibleNames.length > 0 ? possibleNames : [bracketName];
 
   for (const event of oddsCache) {
     const homeNorm = normalizeOddsName(event.home_team);
@@ -1642,29 +1716,17 @@ function calcProjections() {
       if (nextRound < 0) continue; // Eliminated
       if (nextRound >= 6) continue; // Already champion, points already counted
 
-      // Get win probability from odds
+      // Get win probability from odds API (for next game)
       const winProb = findOddsForTeam(t.name);
-      if (winProb === null) continue; // No odds available, skip projection
 
-      // Project forward from current round through championship
-      // For the current game, use real odds
-      // For future rounds, compound probability decreases (use winProb as base, diminish for later rounds)
-      let cumulativeProb = 1.0;
-
+      // Project forward using hybrid model:
+      // - Next game: use live API odds (if available)
+      // - Future rounds: use historical seed-based advancement probabilities
+      // If no API odds, use pure historical probabilities (still useful!)
       for (let futureRound = nextRound; futureRound < 6; futureRound++) {
-        let roundProb;
-        if (futureRound === nextRound) {
-          // Use actual odds for the immediate next game
-          roundProb = winProb;
-        } else {
-          // For future rounds beyond the current, estimate using the same win prob
-          // scaled down slightly (teams face tougher opponents in later rounds)
-          roundProb = winProb * 0.85; // Discount for uncertainty
-        }
-
-        cumulativeProb *= roundProb;
+        const cumProb = getCumulativeAdvanceProb(seed, futureRound, nextRound, winProb);
         const multiplier = futureRound + 1;
-        const expectedPts = cumulativeProb * seed * multiplier;
+        const expectedPts = cumProb * seed * multiplier;
 
         proj[t.owner] = (proj[t.owner] || 0) + expectedPts;
       }
@@ -1944,12 +2006,10 @@ async function syncESPN() {
   if (dashBtn) { dashBtn.disabled = false; dashBtn.innerHTML = '&#127936; Sync Results from ESPN'; }
 }
 
-// Show/hide sync bar and debug nav based on commissioner status
+// Show/hide sync bar based on commissioner status
 function updateSyncBar() {
   const bar = document.getElementById('sync-bar');
   if (bar) bar.style.display = isCommissioner ? 'block' : 'none';
-  const debugNav = document.getElementById('debug-nav-btn');
-  if (debugNav) debugNav.style.display = isCommissioner ? '' : 'none';
 }
 
 // ===== DEBUG / PROJECTIONS DATA PAGE =====
@@ -1958,8 +2018,6 @@ let oddsFetchedAt = null; // timestamp of last odds fetch
 function renderDebug() {
   const el = document.getElementById('debug-content');
   if (!el) return;
-  if (!isCommissioner) { el.innerHTML = ''; return; }
-
   const roundNames = ['R64','R32','Sweet 16','Elite 8','Final Four','Championship'];
   const roundMultipliers = [1,2,3,4,5,6];
 
@@ -1967,12 +2025,13 @@ function renderDebug() {
 
   // Header
   html += `<div class="debug-section">`;
-  html += `<h3>&#128202; Projection Data & Diagnostics</h3>`;
+  html += `<h3>&#128202; Projection Raw Data</h3>`;
   html += `<div class="debug-meta">`;
   html += `<strong>Odds data retrieved:</strong> ${oddsFetchedAt ? oddsFetchedAt : 'Not yet fetched — click "Update Projections" on Dashboard'}`;
   html += `<br><strong>Odds cache:</strong> ${oddsCache ? oddsCache.length + ' events loaded' : 'Empty'}`;
-  html += `<br><strong>Projection method:</strong> Next round uses actual moneyline odds → future rounds use winProb × 0.85 discount per round`;
+  html += `<br><strong>Projection method:</strong> Next game uses live API odds → future rounds use historical seed-based advancement probabilities`;
   html += `<br><strong>Formula:</strong> cumulativeProb × seed × roundMultiplier = expected points`;
+  html += `<br><strong>Fallback:</strong> Teams without API odds use pure historical probabilities based on seed`;
   html += `</div></div>`;
 
   // Per-team breakdown
@@ -2007,8 +2066,10 @@ function renderDebug() {
         probClass = winProb >= 0.65 ? 'high' : (winProb >= 0.4 ? 'med' : 'low');
         probText = `${pct}%`;
       } else {
-        probText = 'No odds';
-        probClass = '';
+        const hist = HISTORICAL_ADVANCE_PROB[seed];
+        const histR64 = hist ? (hist[0]*100).toFixed(0)+'%' : '?';
+        probText = `Hist: ${histR64}`;
+        probClass = 'med';
       }
 
       html += `<tr>`;
@@ -2020,7 +2081,6 @@ function renderDebug() {
       html += `<td class="debug-prob ${probClass}">${probText}</td>`;
 
       // Per-round breakdown
-      let cumProb = 1.0;
       let teamTotalProj = 0;
       let teamElimAfterRound = -1; // track when team was eliminated
 
@@ -2069,18 +2129,18 @@ function renderDebug() {
             html += `<td class="debug-elim">X (lost)</td>`;
             teamElimAfterRound = round;
           }
-        } else if (!isElim && winProb !== null && round >= nextRound) {
-          // Projected
-          let roundProb = (round === nextRound) ? winProb : winProb * 0.85;
-          cumProb *= roundProb;
-          const expectedPts = cumProb * seed * roundMultipliers[round];
+        } else if (!isElim && round >= nextRound) {
+          // Projected using hybrid model (API + historical)
+          const cumProbVal = getCumulativeAdvanceProb(seed, round, nextRound, winProb);
+          const expectedPts = cumProbVal * seed * roundMultipliers[round];
           teamTotalProj += expectedPts;
 
-          const cumPct = (cumProb * 100).toFixed(1);
+          const cumPct = (cumProbVal * 100).toFixed(1);
           const epStr = expectedPts.toFixed(1);
-          const probCls = cumProb >= 0.5 ? 'high' : (cumProb >= 0.2 ? 'med' : 'low');
+          const probCls = cumProbVal >= 0.5 ? 'high' : (cumProbVal >= 0.2 ? 'med' : 'low');
+          const source = (round === nextRound && winProb !== null) ? '' : ' <span style="font-size:0.7em;opacity:0.5;">hist</span>';
 
-          html += `<td><span class="debug-prob ${probCls}">${cumPct}%</span><br><span class="pd-cell-projected">${epStr}</span></td>`;
+          html += `<td><span class="debug-prob ${probCls}">${cumPct}%</span>${source}<br><span class="pd-cell-projected">${epStr}</span></td>`;
         } else {
           html += `<td class="pd-cell-empty">—</td>`;
         }
