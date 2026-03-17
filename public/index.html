@@ -1192,7 +1192,7 @@ function renderPlayerDetail(p) {
     <div><div class="pd-name">${dn}</div><div class="pd-rank">Rank #${rank} &bull; ${alive[p]} teams alive</div></div>
     <div class="pd-scores-row">
       <div class="pd-score-box"><div class="pd-score-val actual">${points[p]}</div><div class="pd-score-lbl">Actual</div></div>
-      ${hasProj ? `<div class="pd-score-box"><div class="pd-score-val projected">${(proj[p]||0).toFixed(1)}</div><div class="pd-score-lbl">Projected</div></div>` : ''}
+      <div class="pd-score-box"><div class="pd-score-val projected">${(proj[p]||0).toFixed(1)}</div><div class="pd-score-lbl">Projected</div></div>
     </div></div>`;
 
   // Teams section
