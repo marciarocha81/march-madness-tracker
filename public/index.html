@@ -353,8 +353,8 @@
   .player-list-pts .pnum { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
   /* PLAYER DETAIL */
-  .pd-back { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); font-size: 0.9em; cursor: pointer; margin-bottom: 16px; transition: color 0.2s; }
-  .pd-back:hover { color: var(--accent); }
+  .pd-back { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); font-size: 0.9em; cursor: pointer; margin-bottom: 16px; transition: color 0.2s; padding: 10px 16px; background: var(--surface2); border-radius: 8px; position: relative; z-index: 20; }
+  .pd-back:hover { color: var(--accent); background: var(--surface); }
   .pd-header {
     background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     padding: 28px; margin-bottom: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
@@ -725,6 +725,16 @@ function setupNav() {
       if (btn.dataset.view !== 'players') selectedPlayer = null;
       renderAll();
     });
+  });
+
+  // Browser back button support for player detail view
+  window.addEventListener('popstate', (e) => {
+    if (e.state && e.state.player) {
+      selectedPlayer = e.state.player;
+    } else {
+      selectedPlayer = null;
+    }
+    renderPlayers();
   });
 }
 
@@ -1108,7 +1118,7 @@ function renderPlayers() {
       const color = PLAYER_COLORS[PLAYERS.indexOf(p)];
       const teamCount = [];
       REGIONS.forEach((r, ri) => { for (let s=1; s<=16; s++) if (state.teams[ri]?.[s]?.owner === p && state.teams[ri][s].name) teamCount.push(1); });
-      return `<div class="player-list-card" onclick="selectedPlayer='${p}';renderPlayers();">
+      return `<div class="player-list-card" onclick="selectedPlayer='${p}';history.pushState({player:'${p}'},'');renderPlayers();">
         <div class="player-list-avatar" style="background:${color}">${dn.charAt(0)}</div>
         <div class="player-list-info">
           <div class="player-list-name">${dn}</div>
@@ -1232,7 +1242,7 @@ function renderPlayerDetail(p) {
   roundNames.forEach(r => roundPts[r] = 0);
   gameLog.forEach(g => { if (g.won) roundPts[g.round] = (roundPts[g.round]||0) + g.points; });
 
-  let html = `<div class="pd-back" onclick="selectedPlayer=null;renderPlayers();">&#8592; Back to Players</div>`;
+  let html = `<div class="pd-back" onclick="history.back();">&#8592; Back to Players</div>`;
   html += `<div class="pd-header">
     <div class="pd-avatar" style="background:${color}">${dn.charAt(0)}</div>
     <div><div class="pd-name">${dn}</div><div class="pd-rank">Rank #${rank} &bull; ${alive[p]} teams alive</div></div>
@@ -1426,25 +1436,115 @@ function moneylineToProb(ml) {
 
 function normalizeOddsName(name) {
   return (name || '').toLowerCase()
-    .replace(/\bstate\b/g, 'st')
     .replace(/\buniversity\b/g, '')
     .replace(/[.\-'()]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+// Map of bracket short names → API full names (built dynamically + manual overrides)
+const TEAM_NAME_MAP = {
+  'florida': ['florida gators'],
+  'houston': ['houston cougars'],
+  'illinois': ['illinois fighting illini'],
+  'nebraska': ['nebraska cornhuskers'],
+  'vanderbilt': ['vanderbilt commodores'],
+  'unc': ['north carolina tar heels'],
+  'saint marys': ['saint marys gaels'],
+  'clemson': ['clemson tigers'],
+  'iowa': ['iowa hawkeyes'],
+  'texas a&m': ['texas a&m aggies'],
+  'vcu': ['vcu rams'],
+  'mcneese': ['mcneese cowboys'],
+  'troy': ['troy trojans'],
+  'penn': ['pennsylvania quakers'],
+  'idaho': ['idaho vandals'],
+  'pv a&m/lehigh': ['prairie view panthers', 'lehigh mountain hawks'],
+  'duke': ['duke blue devils'],
+  'uconn': ['uconn huskies'],
+  'michigan st': ['michigan st spartans'],
+  'kansas': ['kansas jayhawks'],
+  'st. johns': ['st johns red storm'],
+  'louisville': ['louisville cardinals'],
+  'ucla': ['ucla bruins'],
+  'ohio st': ['ohio st buckeyes', 'ohio state buckeyes'],
+  'tcu': ['tcu horned frogs'],
+  'ucf': ['ucf knights'],
+  'south florida': ['south florida bulls'],
+  'northern iowa': ['northern iowa panthers'],
+  'cal baptist': ['cal baptist lancers'],
+  'north dakota st': ['north dakota st bison'],
+  'furman': ['furman paladins'],
+  'siena': ['siena saints'],
+  'michigan': ['michigan wolverines'],
+  'iowa st': ['iowa st cyclones', 'iowa state cyclones'],
+  'virginia': ['virginia cavaliers'],
+  'alabama': ['alabama crimson tide'],
+  'texas tech': ['texas tech red raiders'],
+  'tennessee': ['tennessee volunteers'],
+  'kentucky': ['kentucky wildcats'],
+  'georgia': ['georgia bulldogs'],
+  'saint louis': ['saint louis billikens'],
+  'santa clara': ['santa clara broncos'],
+  'miami oh/smu': ['miami oh redhawks', 'smu mustangs'],
+  'akron': ['akron zips'],
+  'hofstra': ['hofstra pride'],
+  'wright st': ['wright st raiders'],
+  'tennessee st': ['tennessee st tigers'],
+  'umbc/howard': ['umbc retrievers', 'howard bison'],
+  'arizona': ['arizona wildcats'],
+  'purdue': ['purdue boilermakers'],
+  'gonzaga': ['gonzaga bulldogs'],
+  'arkansas': ['arkansas razorbacks'],
+  'wisconsin': ['wisconsin badgers'],
+  'byu': ['byu cougars'],
+  'miami': ['miami hurricanes'],
+  'villanova': ['villanova wildcats'],
+  'utah st': ['utah st aggies', 'utah state aggies'],
+  'missouri': ['missouri tigers'],
+  'texas/nc state': ['texas longhorns', 'nc state wolfpack'],
+  'high point': ['high point panthers'],
+  'hawaii': ['hawai\'i rainbow warriors', 'hawaii rainbow warriors'],
+  'kennesaw st': ['kennesaw st owls'],
+  'queens': ['queens university royals'],
+  'liu': ['liu sharks']
+};
+
 function findOddsForTeam(teamName) {
   // Search odds cache for a game involving this team, return win probability
   if (!oddsCache || !Array.isArray(oddsCache)) return null;
-  const norm = normalizeOddsName(teamName);
+
+  const bracketName = (teamName || '').toLowerCase().trim();
+  // Get possible API names for this bracket team
+  const possibleNames = TEAM_NAME_MAP[bracketName] || [];
+
+  // Also try the bracket name directly as fallback
+  const allNames = [...possibleNames, bracketName];
 
   for (const event of oddsCache) {
-    // Check if this team is in this event
     const homeNorm = normalizeOddsName(event.home_team);
     const awayNorm = normalizeOddsName(event.away_team);
+
     let isHome = false, isAway = false;
-    if (homeNorm === norm || homeNorm.includes(norm) || norm.includes(homeNorm)) isHome = true;
-    if (awayNorm === norm || awayNorm.includes(norm) || norm.includes(awayNorm)) isAway = true;
+
+    for (const apiName of allNames) {
+      const norm = normalizeOddsName(apiName);
+      // Exact match or the API name starts with our name (e.g., "iowa hawkeyes" starts with "iowa")
+      // But NOT substring inside another word (avoid "iowa" matching "iowa state")
+      if (homeNorm === norm) { isHome = true; break; }
+      if (awayNorm === norm) { isAway = true; break; }
+
+      // Check if API name contains our name as first word(s)
+      // "houston cougars" starts with "houston" ✓
+      // "south florida bulls" starts with "south florida" ✓ but NOT "florida" ✓
+      const homeWords = homeNorm.split(' ');
+      const awayWords = awayNorm.split(' ');
+      const normWords = norm.split(' ');
+
+      // Check if first N words match
+      if (normWords.length > 0 && homeWords.slice(0, normWords.length).join(' ') === norm) { isHome = true; break; }
+      if (normWords.length > 0 && awayWords.slice(0, normWords.length).join(' ') === norm) { isAway = true; break; }
+    }
 
     if (!isHome && !isAway) continue;
 
@@ -1453,11 +1553,15 @@ function findOddsForTeam(teamName) {
       for (const market of (bk.markets || [])) {
         if (market.key !== 'h2h') continue;
         const outcomes = market.outcomes || [];
-        const homeOutcome = outcomes.find(o => normalizeOddsName(o.name) === homeNorm || normalizeOddsName(o.name).includes(homeNorm) || homeNorm.includes(normalizeOddsName(o.name)));
-        const awayOutcome = outcomes.find(o => normalizeOddsName(o.name) === awayNorm || normalizeOddsName(o.name).includes(awayNorm) || awayNorm.includes(normalizeOddsName(o.name)));
 
-        if (isHome && homeOutcome) return moneylineToProb(homeOutcome.price);
-        if (isAway && awayOutcome) return moneylineToProb(awayOutcome.price);
+        if (isHome) {
+          const homeOutcome = outcomes.find(o => normalizeOddsName(o.name) === normalizeOddsName(event.home_team));
+          if (homeOutcome) return moneylineToProb(homeOutcome.price);
+        }
+        if (isAway) {
+          const awayOutcome = outcomes.find(o => normalizeOddsName(o.name) === normalizeOddsName(event.away_team));
+          if (awayOutcome) return moneylineToProb(awayOutcome.price);
+        }
       }
     }
   }
