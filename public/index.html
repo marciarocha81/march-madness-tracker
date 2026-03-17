@@ -782,6 +782,24 @@ function applyHardcodedDefaults() {
   if (!state.results) state.results = {};
   if (!state.ffResults) state.ffResults = {};
   if (!state.log) state.log = [];
+
+  // Auto-clear log if there are no actual bracket results
+  // (prevents stale log entries from commissioner test plays)
+  let hasAnyResults = false;
+  for (let ri = 0; ri < 4; ri++) {
+    if (state.results[ri]) {
+      for (const round in state.results[ri]) {
+        if (Object.keys(state.results[ri][round]).length > 0) { hasAnyResults = true; break; }
+      }
+    }
+    if (hasAnyResults) break;
+  }
+  if (!hasAnyResults && state.ffResults) {
+    for (const round in state.ffResults) {
+      if (Object.keys(state.ffResults[round]).length > 0) { hasAnyResults = true; break; }
+    }
+  }
+  if (!hasAnyResults) state.log = [];
 }
 
 // Auto-refresh: poll every 15 seconds to pick up changes from other users
