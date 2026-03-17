@@ -800,12 +800,12 @@ function renderDashboard() {
   }
   // Show/hide projections button for commissioner
   const projBar = document.getElementById('proj-btn-bar');
-  if (projBar) projBar.style.display = isCommissioner ? 'block' : (hasProj ? 'block' : 'none');
+  if (projBar) projBar.style.display = isCommissioner ? 'block' : 'none';
 
   const trophies=['&#127942;','&#129352;','&#129353;'];
   document.getElementById('leaderboard').innerHTML = sorted.map((p,i)=>{
     const dn=state.playerNames[p]||p, color=PLAYER_COLORS[PLAYERS.indexOf(p)], teams=getPlayerTeams(p);
-    const projVal = hasProj ? (proj[p]||0).toFixed(1) : '';
+    const projVal = (proj[p]||0).toFixed(1);
     return `<div class="player-card rank-${i+1}" style="animation-delay:${i*80}ms">
       <div class="rank-badge ${i<3?'':'default'}">${i<3?trophies[i]:i+1}</div>
       <div class="player-color-bar" style="background:${color}"></div>
@@ -813,7 +813,7 @@ function renderDashboard() {
         <div class="player-teams-list">${teams} <span class="alive-badge">${alive[p]} alive</span></div></div>
       <div class="player-scores">
         <div class="player-points"><span class="pts-num">${points[p]}</span><span class="pts-label">actual</span></div>
-        ${hasProj ? `<div class="scores-divider"></div><div class="player-projected"><span class="proj-num">${projVal}</span><span class="proj-label">projected</span></div>` : ''}
+        <div class="scores-divider"></div><div class="player-projected"><span class="proj-num">${projVal}</span><span class="proj-label">projected</span></div>
       </div></div>`;
   }).join('');
 }
