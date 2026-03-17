@@ -574,11 +574,12 @@ const REGIONS = ['South','East','Midwest','West'];
 const PLAYERS = ['A','B','C','D','E','F','G','H','I'];
 
 // Hardcoded draft assignments from final draft spreadsheet
+// Keys are player IDs: A=Adam, B=Brock, C=Chase, D=Colin, E=Dalton, F=Eric, G=Max, H=Nick, I=Zach
 const DRAFT_ASSIGNMENTS = {
-  0: {1:'Colin', 2:'Chase', 3:'Zach', 4:'Colin', 5:'Dalton', 6:'Chase', 7:'Max', 8:'Zach', 9:'Chase', 10:'Zach', 11:'Max', 12:'Dalton', 13:'Nick', 14:'Colin', 15:'Nick', 16:'Chase'},
-  1: {1:'Dalton', 2:'Nick', 3:'Eric', 4:'Chase', 5:'Adam', 6:'Max', 7:'Zach', 8:'Zach', 9:'Brock', 10:'Colin', 11:'Nick', 12:'Adam', 13:'Brock', 14:'Eric', 15:'Colin', 16:''},
-  2: {1:'Dalton', 2:'Colin', 3:'Nick', 4:'Eric', 5:'Max', 6:'Brock', 7:'Brock', 8:'Adam', 9:'Brock', 10:'Eric', 11:'Chase', 12:'Brock', 13:'Nick', 14:'Max', 15:'Dalton', 16:'Zach'},
-  3: {1:'Colin', 2:'Adam', 3:'Dalton', 4:'Nick', 5:'Adam', 6:'Eric', 7:'Eric', 8:'Dalton', 9:'Zach', 10:'Adam', 11:'Max', 12:'Chase', 13:'Brock', 14:'Max', 15:'Eric', 16:'Adam'},
+  0: {1:'D', 2:'C', 3:'I', 4:'D', 5:'E', 6:'C', 7:'G', 8:'I', 9:'C', 10:'I', 11:'G', 12:'E', 13:'H', 14:'D', 15:'H', 16:'C'},
+  1: {1:'E', 2:'H', 3:'F', 4:'C', 5:'A', 6:'G', 7:'I', 8:'I', 9:'B', 10:'D', 11:'H', 12:'A', 13:'B', 14:'F', 15:'D', 16:''},
+  2: {1:'E', 2:'D', 3:'H', 4:'F', 5:'G', 6:'B', 7:'B', 8:'A', 9:'B', 10:'F', 11:'C', 12:'B', 13:'H', 14:'G', 15:'E', 16:'I'},
+  3: {1:'D', 2:'A', 3:'E', 4:'H', 5:'A', 6:'F', 7:'F', 8:'E', 9:'I', 10:'A', 11:'G', 12:'C', 13:'B', 14:'G', 15:'F', 16:'A'},
 };
 
 // Hardcoded projections from KenPom/KFord spreadsheet (per-round expected points)
@@ -762,6 +763,25 @@ function showSaveNotice() {
   setTimeout(() => n.classList.remove('show'), 1500);
 }
 
+// Apply hardcoded bracket, names, and draft on top of any server state
+// This ensures the draft is always correct even after server loads
+function applyHardcodedDefaults() {
+  state.playerNames = {};
+  PLAYERS.forEach(p => state.playerNames[p] = DEFAULT_NAMES[p]);
+  if (!state.teams) state.teams = {};
+  REGIONS.forEach((r,ri) => {
+    if (!state.teams[ri]) state.teams[ri] = {};
+    for (let s = 1; s <= 16; s++) {
+      if (!state.teams[ri][s]) state.teams[ri][s] = {};
+      state.teams[ri][s].name = DEFAULT_BRACKET[ri][s];
+      state.teams[ri][s].owner = DRAFT_ASSIGNMENTS[ri][s] || '';
+    }
+  });
+  if (!state.results) state.results = {};
+  if (!state.ffResults) state.ffResults = {};
+  if (!state.log) state.log = [];
+}
+
 // Auto-refresh: poll every 15 seconds to pick up changes from other users
 setInterval(async () => {
   try {
@@ -770,6 +790,7 @@ setInterval(async () => {
       const fresh = await res.json();
       if (JSON.stringify(fresh) !== JSON.stringify(state)) {
         state = fresh;
+        applyHardcodedDefaults();
         renderAll();
       }
     }
@@ -788,27 +809,7 @@ const DEFAULT_NAMES = {A:'Adam',B:'Brock',C:'Chase',D:'Colin',E:'Dalton',F:'Eric
 // ===== INIT =====
 async function init() {
   await loadFromServer();
-
-  // ALWAYS ensure player names are set
-  state.playerNames = {};
-  PLAYERS.forEach(p => state.playerNames[p] = DEFAULT_NAMES[p]);
-
-  // ALWAYS ensure bracket teams and draft owners are set
-  // (preserves any results/scores already recorded on server)
-  if (!state.teams) state.teams = {};
-  REGIONS.forEach((r,ri) => {
-    if (!state.teams[ri]) state.teams[ri] = {};
-    for (let s = 1; s <= 16; s++) {
-      if (!state.teams[ri][s]) state.teams[ri][s] = {};
-      state.teams[ri][s].name = DEFAULT_BRACKET[ri][s];
-      state.teams[ri][s].owner = DRAFT_ASSIGNMENTS[ri][s] || '';
-    }
-  });
-
-  if (!state.results) state.results = {};
-  if (!state.ffResults) state.ffResults = {};
-  if (!state.log) state.log = [];
-
+  applyHardcodedDefaults();
   setupNav();
   renderAll();
   document.getElementById('loading').classList.add('hidden');
