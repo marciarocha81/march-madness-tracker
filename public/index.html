@@ -1339,7 +1339,7 @@ function renderPlayerDetail(p) {
     if (t.alive && t.nextRound >= 0 && t.nextRound < 6) {
       const winProb = findOddsForTeam(t.name); // null if no API odds
       for (let fr = t.nextRound; fr < 6; fr++) {
-        const cumProb = getCumulativeAdvanceProb(t.seed, fr, t.nextRound, winProb);
+        const cumProb = getCumulativeAdvanceProb(t.seed, fr, t.nextRound, winProb, t.name);
         data[fr].projected = cumProb * t.seed * roundMultipliers[fr];
       }
     }
@@ -1476,26 +1476,70 @@ const HISTORICAL_ADVANCE_PROB = {
   16: [0.02, 0.004, 0.001, 0.0003, 0.0001, 0.00003]
 };
 
-// Get cumulative probability of advancing through round R given team starts at startRound
-// If startRound=0 and apiWinProb is available, uses API for first game, historical for rest
-function getCumulativeAdvanceProb(seed, round, startRound, apiWinProb) {
+// KFord expected fantasy points per team (total across all rounds)
+// Source: respected pre-tournament projection model
+const KFORD_EXPECTED = {
+  // South
+  'Florida': 6.6, 'Houston': 12.5, 'Illinois': 17.0, 'Nebraska': 10.8,
+  'Vanderbilt': 14.9, 'North Carolina': 7.3, 'Saint Marys': 6.5, 'Clemson': 5.6,
+  'Iowa': 9.6, 'Texas A&M': 6.7, 'VCU': 5.2, 'McNeese': 2.2,
+  'Troy': 0.9, 'Penn': 0.4, 'Idaho': 0.5, 'PV A&M/Lehigh': 0.3,
+  // East
+  'Duke': 10.4, 'UConn': 8.7, 'Michigan St': 10.9, 'Kansas': 9.7,
+  'St. Johns': 13.0, 'Louisville': 15.8, 'UCLA': 11.2, 'Ohio St': 8.6,
+  'TCU': 4.0, 'UCF': 4.4, 'South Florida': 4.1, 'Northern Iowa': 2.5,
+  'Cal Baptist': 1.4, 'North Dakota St': 1.0, 'Furman': 0.6, 'Siena': 0.1,
+  // Midwest
+  'Michigan': 9.5, 'Iowa St': 11.6, 'Virginia': 9.1, 'Alabama': 10.6,
+  'Texas Tech': 12.3, 'Tennessee': 15.0, 'Kentucky': 8.9, 'Georgia': 6.2,
+  'Saint Louis': 5.8, 'Santa Clara': 5.8, 'Miami OH/SMU': 5.4, 'Akron': 2.9,
+  'Hofstra': 1.6, 'Wright St': 0.9, 'Tennessee St': 0.2, 'UMBC/Howard': 0.3,
+  // West
+  'Arizona': 8.6, 'Purdue': 12.1, 'Gonzaga': 12.4, 'Arkansas': 11.8,
+  'Wisconsin': 11.0, 'BYU': 8.2, 'Miami': 7.6, 'Villanova': 6.0,
+  'Utah St': 8.3, 'Missouri': 5.9, 'Texas/NC State': 8.4, 'High Point': 2.3,
+  'Hawaii': 1.3, 'Kennesaw St': 0.6, 'Queens': 0.3, 'LIU': 0.1,
+};
+
+// Get KFord-scaled probabilities for a team
+// Scales the historical seed-based probs so the total expected points match KFord's value
+function getKfordScaledProbs(seed, teamName) {
+  const kford = KFORD_EXPECTED[teamName];
+  if (kford === undefined) return null;
   const hist = HISTORICAL_ADVANCE_PROB[seed] || HISTORICAL_ADVANCE_PROB[16];
+
+  // Calculate historical expected total for this seed
+  const mults = [1,2,3,4,5,6];
+  let histTotal = 0;
+  for (let r = 0; r < 6; r++) histTotal += hist[r] * seed * mults[r];
+  if (histTotal <= 0) return null;
+
+  const scale = kford / histTotal;
+  // Scale probabilities, cap at 0.999 to keep them valid
+  return hist.map(p => Math.min(p * scale, 0.999));
+}
+
+// Get cumulative probability of advancing through round R given team starts at startRound
+// Uses KFord-scaled probabilities when available, with API odds for the immediate next game
+function getCumulativeAdvanceProb(seed, round, startRound, apiWinProb, teamName) {
+  // Use KFord-scaled probs if available, otherwise raw historical
+  const kfordProbs = teamName ? getKfordScaledProbs(seed, teamName) : null;
+  const hist = kfordProbs || (HISTORICAL_ADVANCE_PROB[seed] || HISTORICAL_ADVANCE_PROB[16]);
+
   if (round < startRound) return 1.0; // Already past this round
 
   if (apiWinProb !== null) {
-    // Hybrid: API odds for next game, historical for subsequent rounds
+    // Hybrid: API odds for next game, KFord-scaled historical for subsequent rounds
     if (round === startRound) {
       return apiWinProb;
     }
     // For rounds beyond next: P(win next via API) × P(advance thru round | won next round)
-    // P(advance thru round | won next round) = hist[round] / hist[startRound]
     const histCumFromNextRound = hist[round];
-    const histCumAtNextRound = hist[startRound]; // = P(advanced past startRound)
+    const histCumAtNextRound = hist[startRound];
     if (histCumAtNextRound <= 0) return 0;
     return apiWinProb * (histCumFromNextRound / histCumAtNextRound);
   } else {
-    // No API odds: use pure historical
-    // P(advance thru round | reached startRound) = hist[round] / hist[startRound - 1]
+    // No API odds: use pure KFord-scaled (or historical) probabilities
     const histCumForStart = startRound > 0 ? hist[startRound - 1] : 1.0;
     if (histCumForStart <= 0) return 0;
     return hist[round] / histCumForStart;
@@ -1726,10 +1770,9 @@ function calcProjections() {
 
       // Project forward using hybrid model:
       // - Next game: use live API odds (if available)
-      // - Future rounds: use historical seed-based advancement probabilities
-      // If no API odds, use pure historical probabilities (still useful!)
+      // - Future rounds: use KFord-scaled probabilities (or historical fallback)
       for (let futureRound = nextRound; futureRound < 6; futureRound++) {
-        const cumProb = getCumulativeAdvanceProb(seed, futureRound, nextRound, winProb);
+        const cumProb = getCumulativeAdvanceProb(seed, futureRound, nextRound, winProb, t.name);
         const multiplier = futureRound + 1;
         const expectedPts = cumProb * seed * multiplier;
 
@@ -2036,9 +2079,10 @@ function renderDebug() {
   html += `<div class="debug-meta">`;
   html += `<strong>Odds data retrieved:</strong> ${oddsFetchedAt ? oddsFetchedAt : 'Not yet fetched — click "Update Projections" on Dashboard'}`;
   html += `<br><strong>Odds cache:</strong> ${oddsCache ? oddsCache.length + ' events loaded' : 'Empty'}`;
-  html += `<br><strong>Projection method:</strong> Next game uses live API odds → future rounds use historical seed-based advancement probabilities`;
+  html += `<br><strong>Projection method:</strong> Next game uses live API odds → future rounds use KFord-scaled probabilities`;
+  html += `<br><strong>KFord calibration:</strong> Historical seed probabilities are scaled per-team so totals match KFord expected values`;
   html += `<br><strong>Formula:</strong> cumulativeProb × seed × roundMultiplier = expected points`;
-  html += `<br><strong>Fallback:</strong> Teams without API odds use pure historical probabilities based on seed`;
+  html += `<br><strong>Fallback:</strong> Teams without KFord data use raw historical probabilities`;
   html += `</div></div>`;
 
   // Per-team breakdown
@@ -2047,7 +2091,7 @@ function renderDebug() {
   html += `<div style="overflow-x:auto;"><table class="debug-table">`;
   html += `<tr><th>Team</th><th>Seed</th><th>Region</th><th>Owner</th><th>Status</th><th>Win Prob (Odds)</th>`;
   roundNames.forEach(r => html += `<th>${r}<br><span style="font-size:0.8em;opacity:0.6;">prob → pts</span></th>`);
-  html += `<th>Total Proj.</th></tr>`;
+  html += `<th>KFord</th><th>Total Proj.</th></tr>`;
 
   const points = calcPoints();
 
@@ -2137,15 +2181,16 @@ function renderDebug() {
             teamElimAfterRound = round;
           }
         } else if (!isElim && round >= nextRound) {
-          // Projected using hybrid model (API + historical)
-          const cumProbVal = getCumulativeAdvanceProb(seed, round, nextRound, winProb);
+          // Projected using hybrid model (API + KFord-scaled)
+          const cumProbVal = getCumulativeAdvanceProb(seed, round, nextRound, winProb, t.name);
           const expectedPts = cumProbVal * seed * roundMultipliers[round];
           teamTotalProj += expectedPts;
 
           const cumPct = (cumProbVal * 100).toFixed(1);
           const epStr = expectedPts.toFixed(1);
           const probCls = cumProbVal >= 0.5 ? 'high' : (cumProbVal >= 0.2 ? 'med' : 'low');
-          const source = (round === nextRound && winProb !== null) ? '' : ' <span style="font-size:0.7em;opacity:0.5;">hist</span>';
+          const hasKford = KFORD_EXPECTED[t.name] !== undefined;
+          const source = (round === nextRound && winProb !== null) ? '' : (hasKford ? ' <span style="font-size:0.7em;opacity:0.5;">kf</span>' : ' <span style="font-size:0.7em;opacity:0.5;">hist</span>');
 
           html += `<td><span class="debug-prob ${probCls}">${cumPct}%</span>${source}<br><span class="pd-cell-projected">${epStr}</span></td>`;
         } else {
@@ -2153,6 +2198,8 @@ function renderDebug() {
         }
       }
 
+      const kfVal = KFORD_EXPECTED[t.name];
+      html += `<td style="color:var(--accent);font-weight:600;">${kfVal !== undefined ? kfVal.toFixed(1) : '—'}</td>`;
       html += `<td style="font-weight:800;">${teamTotalProj.toFixed(1)}</td>`;
       html += `</tr>`;
     }
