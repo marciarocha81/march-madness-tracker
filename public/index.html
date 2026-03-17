@@ -710,6 +710,11 @@ async function init() {
   if (!state.ffResults) state.ffResults = {};
   if (!state.log) state.log = [];
   if (state.projections) projectedPoints = state.projections;
+  // Restore saved odds cache so API-based projections persist across page loads
+  if (state.oddsCache && state.oddsCache.length > 0) {
+    oddsCache = state.oddsCache;
+    oddsFetchedAt = state.oddsFetchedAt || 'Previously fetched';
+  }
   setupNav();
   renderAll();
   document.getElementById('loading').classList.add('hidden');
@@ -1143,7 +1148,7 @@ function renderPlayers() {
       const color = PLAYER_COLORS[PLAYERS.indexOf(p)];
       const teamCount = [];
       REGIONS.forEach((r, ri) => { for (let s=1; s<=16; s++) if (state.teams[ri]?.[s]?.owner === p && state.teams[ri][s].name) teamCount.push(1); });
-      return `<div class="player-list-card" onclick="selectedPlayer='${p}';history.pushState({player:'${p}',tab:'players'},'','#player-'+p);renderPlayers();">
+      return `<div class="player-list-card" onclick="selectedPlayer='${p}';history.pushState({player:'${p}',tab:'players'},'','#player-${p}');renderPlayers();">
         <div class="player-list-avatar" style="background:${color}">${dn.charAt(0)}</div>
         <div class="player-list-info">
           <div class="player-list-name">${dn}</div>
@@ -1777,8 +1782,10 @@ async function fetchProjections() {
     });
     statusEl.textContent += ` | Odds found for ${matched}/${total} alive teams`;
 
-    // Save projections to server so everyone can see them
+    // Save odds + projections to server so everyone sees API-based data on page load
     state.projections = projectedPoints;
+    state.oddsCache = oddsCache;
+    state.oddsFetchedAt = oddsFetchedAt;
     scheduleSave();
     renderAll();
   } catch (err) {
