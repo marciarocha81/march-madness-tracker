@@ -492,6 +492,10 @@
         <button class="btn btn-secondary" onclick="fillDefault2026()">Fill 2026 Teams</button>
         <button class="btn btn-danger" onclick="resetAll()">Reset Everything</button>
       </div>
+      <div class="btn-group" id="commissioner-tools" style="display:none;margin-top:12px;">
+        <button class="btn btn-secondary" onclick="fillPlayerNames()">Add Players' Names</button>
+        <button class="btn btn-secondary" onclick="randomTeamAssignment()">Random Team Assignment (Test)</button>
+      </div>
     </div>
   </div>
   <div id="log" class="view">
@@ -848,6 +852,8 @@ function renderSetup() {
     html+='</div>';
   });
   document.getElementById('regions-setup').innerHTML = html;
+  const ct = document.getElementById('commissioner-tools');
+  if (ct) ct.style.display = isCommissioner ? 'flex' : 'none';
 }
 
 function fillDefault2026() {
@@ -859,12 +865,43 @@ function fillDefault2026() {
 
 function resetAll() {
   if(!isCommissioner){alert('Only the commissioner can make changes.');return;}
-  if(!confirm('This will erase ALL data. Are you sure?')) return;
+  if(!confirm('This will erase ALL data and make the site completely blank. Are you sure?')) return;
   state={playerNames:{},teams:{},results:{},ffResults:{},log:[]};
-  const dn={A:'Adam',B:'Brock',C:'Chase',D:'Collin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
-  PLAYERS.forEach(p=>state.playerNames[p]=dn[p]||p);
+  PLAYERS.forEach(p=>state.playerNames[p]=p);
   REGIONS.forEach((r,ri)=>{state.teams[ri]={};for(let s=1;s<=16;s++)state.teams[ri][s]={name:'',owner:''};});
+  projectedPoints = {};
   saveToServer(); renderAll();
+}
+
+function fillPlayerNames() {
+  if(!isCommissioner){alert('Only the commissioner can make changes.');return;}
+  const names={A:'Adam',B:'Brock',C:'Chase',D:'Collin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
+  PLAYERS.forEach(p=>state.playerNames[p]=names[p]||p);
+  scheduleSave(); renderAll();
+}
+
+function randomTeamAssignment() {
+  if(!isCommissioner){alert('Only the commissioner can make changes.');return;}
+  if(!confirm('This will randomly assign 7 teams to each player. One team per region will be unassigned. Continue?')) return;
+  // Collect all teams that have names
+  const allTeams = [];
+  REGIONS.forEach((r,ri)=>{for(let s=1;s<=16;s++){if(state.teams[ri]?.[s]?.name) allTeams.push({ri,s});}});
+  // Shuffle
+  for(let i=allTeams.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[allTeams[i],allTeams[j]]=[allTeams[j],allTeams[i]];}
+  // Clear all assignments first
+  allTeams.forEach(t=>{state.teams[t.ri][t.s].owner='';});
+  // Assign 7 teams per player
+  const teamsPerPlayer = 7;
+  let idx = 0;
+  PLAYERS.forEach(p=>{
+    for(let i=0;i<teamsPerPlayer&&idx<allTeams.length;i++){
+      const t=allTeams[idx];
+      state.teams[t.ri][t.s].owner=p;
+      idx++;
+    }
+  });
+  // Remaining teams stay unassigned
+  scheduleSave(); renderAll();
 }
 
 // ===== BRACKET =====
