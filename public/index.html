@@ -1335,12 +1335,12 @@ function renderPlayerDetail(p) {
     }
 
     // Add projections for future rounds (only for alive teams)
-    // Uses hybrid model: API odds for next game + historical seed-based probabilities for later rounds
+    // Uses hybrid model: API odds for next game, re-budgeted to match KFord totals
     if (t.alive && t.nextRound >= 0 && t.nextRound < 6) {
       const winProb = findOddsForTeam(t.name); // null if no API odds
+      const roundProbs = getTeamRoundProbs(t.seed, t.nextRound, winProb, t.name);
       for (let fr = t.nextRound; fr < 6; fr++) {
-        const cumProb = getCumulativeAdvanceProb(t.seed, fr, t.nextRound, winProb, t.name);
-        data[fr].projected = cumProb * t.seed * roundMultipliers[fr];
+        data[fr].projected = roundProbs[fr] * t.seed * roundMultipliers[fr];
       }
     }
     return data;
@@ -1519,31 +1519,65 @@ function getKfordScaledProbs(seed, teamName) {
   return hist.map(p => Math.min(p * scale, 0.999));
 }
 
-// Get cumulative probability of advancing through round R given team starts at startRound
-// Uses KFord-scaled probabilities when available, with API odds for the immediate next game
-function getCumulativeAdvanceProb(seed, round, startRound, apiWinProb, teamName) {
-  // Use KFord-scaled probs if available, otherwise raw historical
+// Get all 6 round probabilities for a team, using API odds for next game
+// and re-budgeting remaining rounds so total expected points match KFord
+function getTeamRoundProbs(seed, startRound, apiWinProb, teamName) {
   const kfordProbs = teamName ? getKfordScaledProbs(seed, teamName) : null;
   const hist = kfordProbs || (HISTORICAL_ADVANCE_PROB[seed] || HISTORICAL_ADVANCE_PROB[16]);
+  const kford = KFORD_EXPECTED[teamName];
+  const mults = [1,2,3,4,5,6];
 
-  if (round < startRound) return 1.0; // Already past this round
+  // Build array of 6 probabilities (one per round)
+  const probs = new Array(6).fill(0);
 
-  if (apiWinProb !== null) {
-    // Hybrid: API odds for next game, KFord-scaled historical for subsequent rounds
-    if (round === startRound) {
-      return apiWinProb;
+  // Rounds already won: probability = 1.0
+  for (let r = 0; r < startRound; r++) probs[r] = 1.0;
+
+  if (apiWinProb !== null && kford !== undefined && startRound < 6) {
+    // Check if API R64 points alone would exceed KFord total
+    // If so, API odds are likely for a play-in game or wildly divergent — use pure KFord
+    let consumedByWon = 0;
+    for (let r = 0; r < startRound; r++) consumedByWon += 1.0 * seed * mults[r];
+    const apiNextPts = apiWinProb * seed * mults[startRound];
+
+    if (consumedByWon + apiNextPts > kford * 1.15) {
+      // API odds too high relative to KFord — fall back to pure KFord-scaled probs
+      const histCumForStart = startRound > 0 ? hist[startRound - 1] : 1.0;
+      for (let r = startRound; r < 6; r++) {
+        if (histCumForStart <= 0) probs[r] = 0;
+        else probs[r] = hist[r] / histCumForStart;
+      }
+    } else {
+      // HYBRID MODEL: API odds for next game, re-budget later rounds to match KFord total
+      probs[startRound] = apiWinProb;
+
+      const consumedPts = consumedByWon + apiNextPts;
+      const remainingBudget = Math.max(0, kford - consumedPts);
+
+      // Calculate what KFord-scaled historical gives for rounds after next
+      let histLaterTotal = 0;
+      for (let r = startRound + 1; r < 6; r++) {
+        histLaterTotal += hist[r] * seed * mults[r];
+      }
+
+      // Scale later-round probs to fit remaining budget
+      if (histLaterTotal > 0) {
+        const laterScale = remainingBudget / histLaterTotal;
+        for (let r = startRound + 1; r < 6; r++) {
+          probs[r] = Math.min(hist[r] * laterScale, 0.999);
+        }
+      }
     }
-    // For rounds beyond next: P(win next via API) × P(advance thru round | won next round)
-    const histCumFromNextRound = hist[round];
-    const histCumAtNextRound = hist[startRound];
-    if (histCumAtNextRound <= 0) return 0;
-    return apiWinProb * (histCumFromNextRound / histCumAtNextRound);
   } else {
-    // No API odds: use pure KFord-scaled (or historical) probabilities
+    // No API odds OR no KFord: use pure KFord-scaled (or historical) probabilities
     const histCumForStart = startRound > 0 ? hist[startRound - 1] : 1.0;
-    if (histCumForStart <= 0) return 0;
-    return hist[round] / histCumForStart;
+    for (let r = startRound; r < 6; r++) {
+      if (histCumForStart <= 0) { probs[r] = 0; }
+      else { probs[r] = hist[r] / histCumForStart; }
+    }
   }
+
+  return probs;
 }
 
 function moneylineToProb(ml) {
@@ -1770,11 +1804,11 @@ function calcProjections() {
 
       // Project forward using hybrid model:
       // - Next game: use live API odds (if available)
-      // - Future rounds: use KFord-scaled probabilities (or historical fallback)
+      // - Later rounds: re-budgeted to match KFord total expected points
+      const roundProbs = getTeamRoundProbs(seed, nextRound, winProb, t.name);
       for (let futureRound = nextRound; futureRound < 6; futureRound++) {
-        const cumProb = getCumulativeAdvanceProb(seed, futureRound, nextRound, winProb, t.name);
         const multiplier = futureRound + 1;
-        const expectedPts = cumProb * seed * multiplier;
+        const expectedPts = roundProbs[futureRound] * seed * multiplier;
 
         proj[t.owner] = (proj[t.owner] || 0) + expectedPts;
       }
@@ -2132,6 +2166,7 @@ function renderDebug() {
       html += `<td class="debug-prob ${probClass}">${probText}</td>`;
 
       // Per-round breakdown
+      const roundProbs = getTeamRoundProbs(seed, nextRound, winProb, t.name);
       let teamTotalProj = 0;
       let teamElimAfterRound = -1; // track when team was eliminated
 
@@ -2182,7 +2217,7 @@ function renderDebug() {
           }
         } else if (!isElim && round >= nextRound) {
           // Projected using hybrid model (API + KFord-scaled)
-          const cumProbVal = getCumulativeAdvanceProb(seed, round, nextRound, winProb, t.name);
+          const cumProbVal = roundProbs[round];
           const expectedPts = cumProbVal * seed * roundMultipliers[round];
           teamTotalProj += expectedPts;
 
