@@ -152,6 +152,34 @@ app.get('/api/espn-scores', async (req, res) => {
   }
 });
 
+// Odds API proxy — fetches betting odds for NCAA tournament games (1 API request)
+const ODDS_API_KEY = process.env.ODDS_API_KEY || 'afb3d4874715b9a2dac8b6f9a3fefa2b';
+app.get('/api/odds', async (req, res) => {
+  if (!ODDS_API_KEY) {
+    return res.status(400).json({ error: 'No ODDS_API_KEY configured. Add it in Render environment variables.' });
+  }
+  const https = require('https');
+  const url = `https://api.the-odds-api.com/v4/sports/basketball_ncaab/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american`;
+
+  https.get(url, (resp) => {
+    let data = '';
+    resp.on('data', chunk => data += chunk);
+    resp.on('end', () => {
+      try {
+        const parsed = JSON.parse(data);
+        // Return remaining API requests info from headers
+        const remaining = resp.headers['x-requests-remaining'] || '?';
+        const used = resp.headers['x-requests-used'] || '?';
+        res.json({ odds: parsed, remaining, used, fetchedAt: new Date().toISOString() });
+      } catch(e) {
+        res.status(500).json({ error: 'Failed to parse odds data' });
+      }
+    });
+  }).on('error', (err) => {
+    res.status(500).json({ error: 'Failed to fetch odds: ' + err.message });
+  });
+});
+
 // Verify password endpoint
 app.post('/api/verify-password', (req, res) => {
   const { password } = req.body;
