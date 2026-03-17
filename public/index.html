@@ -569,6 +569,82 @@
 // ===== CONSTANTS =====
 const REGIONS = ['South','East','Midwest','West'];
 const PLAYERS = ['A','B','C','D','E','F','G','H','I'];
+
+// Hardcoded draft assignments from final draft spreadsheet
+const DRAFT_ASSIGNMENTS = {
+  0: {1:'Colin', 2:'Chase', 3:'Zach', 4:'Colin', 5:'Dalton', 6:'Chase', 7:'Max', 8:'Zach', 9:'Chase', 10:'Zach', 11:'Max', 12:'Dalton', 13:'Nick', 14:'Colin', 15:'Nick', 16:'Chase'},
+  1: {1:'Dalton', 2:'Nick', 3:'Eric', 4:'Chase', 5:'Adam', 6:'Max', 7:'Zach', 8:'Zach', 9:'Brock', 10:'Colin', 11:'Nick', 12:'Adam', 13:'Brock', 14:'Eric', 15:'Colin', 16:''},
+  2: {1:'Dalton', 2:'Colin', 3:'Nick', 4:'Eric', 5:'Max', 6:'Brock', 7:'Brock', 8:'Adam', 9:'Brock', 10:'Eric', 11:'Chase', 12:'Brock', 13:'Nick', 14:'Max', 15:'Dalton', 16:'Zach'},
+  3: {1:'Colin', 2:'Adam', 3:'Dalton', 4:'Nick', 5:'Adam', 6:'Eric', 7:'Eric', 8:'Dalton', 9:'Zach', 10:'Adam', 11:'Max', 12:'Chase', 13:'Brock', 14:'Max', 15:'Eric', 16:'Adam'},
+};
+
+// Hardcoded projections from KenPom/KFord spreadsheet (per-round expected points)
+const HARDCODED_PROJECTIONS = {
+  'Akron': {r64:1.8,r32:0.7,s16:0.4,e8:0,ff:0,champ:0,total:2.9},
+  'Alabama': {r64:3.6,r32:4.1,s16:1.7,e8:0.8,ff:0.4,champ:0,total:10.6},
+  'Arizona': {r64:1.0,r32:1.7,s16:2.0,e8:1.8,ff:1.4,champ:0.8,total:8.6},
+  'Arkansas': {r64:3.7,r32:4.6,s16:2.0,e8:1.0,ff:0.4,champ:0.2,total:11.9},
+  'BYU': {r64:3.7,r32:2.5,s16:1.4,e8:0.5,ff:0,champ:0,total:8.1},
+  'Cal Baptist': {r64:1.0,r32:0.3,s16:0,e8:0,ff:0,champ:0,total:1.3},
+  'Clemson': {r64:3.4,r32:1.3,s16:0.7,e8:0.3,ff:0,champ:0,total:5.8},
+  'Duke': {r64:1.0,r32:1.7,s16:2.2,e8:2.2,ff:1.9,champ:1.4,total:10.5},
+  'Florida': {r64:1.0,r32:1.6,s16:1.7,e8:1.2,ff:0.8,champ:0.5,total:6.6},
+  'Furman': {r64:0.5,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.5},
+  'Georgia': {r64:4.4,r32:1.0,s16:0.5,e8:0.3,ff:0,champ:0,total:6.2},
+  'Gonzaga': {r64:2.9,r32:4.0,s16:2.9,e8:1.6,ff:0.8,champ:0.4,total:12.5},
+  'Hawaii': {r64:0.9,r32:0.3,s16:0,e8:0,ff:0,champ:0,total:1.2},
+  'High Point': {r64:1.8,r32:0.5,s16:0,e8:0,ff:0,champ:0,total:2.3},
+  'Hofstra': {r64:1.3,r32:0.3,s16:0,e8:0,ff:0,champ:0,total:1.6},
+  'Houston': {r64:2.0,r32:3.2,s16:2.8,e8:2.2,ff:1.5,champ:0.8,total:12.6},
+  'Idaho': {r64:0.3,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.3},
+  'Illinois': {r64:2.9,r32:4.7,s16:3.8,e8:2.9,ff:1.7,champ:1.1,total:17.0},
+  'Iowa': {r64:5.1,r32:2.5,s16:1.4,e8:0.4,ff:0,champ:0,total:9.4},
+  'Iowa St': {r64:2.0,r32:3.0,s16:2.9,e8:1.8,ff:1.2,champ:0.6,total:11.6},
+  'Kansas': {r64:3.7,r32:3.8,s16:1.2,e8:0.8,ff:0.2,champ:0.2,total:9.9},
+  'Kennesaw St': {r64:0.6,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.6},
+  'Kentucky': {r64:4.4,r32:2.5,s16:1.5,e8:0.3,ff:0,champ:0,total:8.7},
+  'LIU': {r64:0,r32:0,s16:0,e8:0,ff:0,champ:0,total:0},
+  'Louisville': {r64:4.7,r32:4.8,s16:3.8,e8:1.4,ff:0.6,champ:0.4,total:15.7},
+  'McNeese': {r64:1.6,r32:0.5,s16:0,e8:0,ff:0,champ:0,total:2.0},
+  'Miami': {r64:4.3,r32:2.0,s16:1.1,e8:0.3,ff:0,champ:0,total:7.6},
+  'Miami OH/SMU': {r64:2.6,r32:1.5,s16:0.7,e8:0,ff:0,champ:0,total:4.8},
+  'Michigan': {r64:1.0,r32:1.8,s16:2.1,e8:2.0,ff:1.6,champ:1.1,total:9.6},
+  'Michigan St': {r64:2.8,r32:3.2,s16:2.7,e8:1.3,ff:0.6,champ:0.2,total:10.9},
+  'Missouri': {r64:3.9,r32:1.2,s16:0.6,e8:0,ff:0,champ:0,total:5.7},
+  'Nebraska': {r64:3.8,r32:3.7,s16:2.0,e8:0.8,ff:0.4,champ:0.2,total:10.9},
+  'North Carolina': {r64:4.0,r32:2.0,s16:0.9,e8:0.2,ff:0,champ:0,total:7.1},
+  'North Dakota St': {r64:0.8,r32:0.3,s16:0,e8:0,ff:0,champ:0,total:1.1},
+  'Northern Iowa': {r64:1.8,r32:0.7,s16:0,e8:0,ff:0,champ:0,total:2.5},
+  'Ohio St': {r64:5.2,r32:1.6,s16:1.2,e8:0.6,ff:0,champ:0,total:8.6},
+  'PV A&M/Lehigh': {r64:0,r32:0,s16:0,e8:0,ff:0,champ:0,total:0},
+  'Penn': {r64:0.3,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.3},
+  'Purdue': {r64:2.0,r32:3.2,s16:3.1,e8:2.0,ff:1.2,champ:0.7,total:12.1},
+  'Queens': {r64:0.3,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.3},
+  'Saint Louis': {r64:4.1,r32:0.9,s16:0.5,e8:0,ff:0,champ:0,total:5.5},
+  'Saint Marys': {r64:4.0,r32:1.5,s16:0.6,e8:0.3,ff:0,champ:0,total:6.4},
+  'Santa Clara': {r64:3.7,r32:1.4,s16:0.6,e8:0,ff:0,champ:0,total:5.7},
+  'Siena': {r64:0.2,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.2},
+  'South Florida': {r64:2.4,r32:1.1,s16:0.3,e8:0,ff:0,champ:0,total:3.9},
+  'St. Johns': {r64:4.3,r32:4.9,s16:1.8,e8:1.2,ff:0.5,champ:0.3,total:13.0},
+  'TCU': {r64:3.2,r32:0.5,s16:0.3,e8:0,ff:0,champ:0,total:4.0},
+  'Tennessee': {r64:4.6,r32:4.9,s16:3.2,e8:1.4,ff:0.6,champ:0.4,total:15.1},
+  'Tennessee St': {r64:0.2,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.2},
+  'Texas A&M': {r64:4.3,r32:1.6,s16:0.6,e8:0,ff:0,champ:0,total:6.5},
+  'Texas Tech': {r64:4.3,r32:4.5,s16:1.8,e8:1.0,ff:0.5,champ:0.3,total:12.4},
+  'Texas/NC State': {r64:4.4,r32:2.6,s16:1.0,e8:0,ff:0,champ:0,total:8.0},
+  'Troy': {r64:0.8,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.8},
+  'UCF': {r64:2.8,r32:1.2,s16:0.3,e8:0,ff:0,champ:0,total:4.3},
+  'UCLA': {r64:5.0,r32:3.6,s16:1.9,e8:0.6,ff:0,champ:0,total:11.1},
+  'UConn': {r64:1.9,r32:2.7,s16:2.3,e8:1.0,ff:0.5,champ:0.2,total:8.6},
+  'UMBC/Howard': {r64:0.2,r32:0,s16:0,e8:0,ff:0,champ:0,total:0.2},
+  'Utah St': {r64:4.8,r32:1.6,s16:1.1,e8:0.4,ff:0,champ:0,total:7.8},
+  'VCU': {r64:3.7,r32:1.1,s16:0.3,e8:0,ff:0,champ:0,total:5.2},
+  'Vanderbilt': {r64:4.4,r32:5.1,s16:3.0,e8:1.6,ff:0.5,champ:0.3,total:14.9},
+  'Villanova': {r64:3.8,r32:1.1,s16:0.7,e8:0.3,ff:0,champ:0,total:5.9},
+  'Virginia': {r64:2.8,r32:3.1,s16:2.0,e8:0.8,ff:0.3,champ:0.2,total:9.2},
+  'Wisconsin': {r64:4.3,r32:4.0,s16:1.7,e8:0.8,ff:0.3,champ:0,total:11.0},
+  'Wright St': {r64:0.8,r32:0.3,s16:0,e8:0,ff:0,champ:0,total:1.1},
+};
 const PLAYER_COLORS = ['#ff6b35','#ffd23f','#4ecdc4','#ff6b6b','#a78bfa','#60a5fa','#f472b6','#34d399','#fb923c'];
 const ROUND_NAMES = ['R64','R32','Sweet 16','Elite 8'];
 const FF_ROUND_NAMES = ['Final Four','Championship'];
@@ -700,11 +776,19 @@ setInterval(async () => {
 // ===== INIT =====
 async function init() {
   await loadFromServer();
-  const DEFAULT_NAMES = {A:'Adam',B:'Brock',C:'Chase',D:'Collin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
+  const DEFAULT_NAMES = {A:'Adam',B:'Brock',C:'Chase',D:'Colin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
   if (!state.playerNames || Object.keys(state.playerNames).length === 0)
     PLAYERS.forEach(p => state.playerNames[p] = DEFAULT_NAMES[p] || p);
   if (!state.teams || Object.keys(state.teams).length === 0) {
-    REGIONS.forEach((r,ri) => { state.teams[ri] = {}; for(let s=1;s<=16;s++) state.teams[ri][s]={name:'',owner:''}; });
+    // Auto-fill bracket teams and draft assignments on first load
+    const d={0:{1:'Florida',2:'Houston',3:'Illinois',4:'Nebraska',5:'Vanderbilt',6:'North Carolina',7:'Saint Marys',8:'Clemson',9:'Iowa',10:'Texas A&M',11:'VCU',12:'McNeese',13:'Troy',14:'Penn',15:'Idaho',16:'PV A&M/Lehigh'},1:{1:'Duke',2:'UConn',3:'Michigan St',4:'Kansas',5:'St. Johns',6:'Louisville',7:'UCLA',8:'Ohio St',9:'TCU',10:'UCF',11:'South Florida',12:'Northern Iowa',13:'Cal Baptist',14:'North Dakota St',15:'Furman',16:'Siena'},2:{1:'Michigan',2:'Iowa St',3:'Virginia',4:'Alabama',5:'Texas Tech',6:'Tennessee',7:'Kentucky',8:'Georgia',9:'Saint Louis',10:'Santa Clara',11:'Miami OH/SMU',12:'Akron',13:'Hofstra',14:'Wright St',15:'Tennessee St',16:'UMBC/Howard'},3:{1:'Arizona',2:'Purdue',3:'Gonzaga',4:'Arkansas',5:'Wisconsin',6:'BYU',7:'Miami',8:'Villanova',9:'Utah St',10:'Missouri',11:'Texas/NC State',12:'High Point',13:'Hawaii',14:'Kennesaw St',15:'Queens',16:'LIU'}};
+    REGIONS.forEach((r,ri) => {
+      state.teams[ri] = {};
+      for(let s=1;s<=16;s++) {
+        state.teams[ri][s] = { name: d[ri][s], owner: DRAFT_ASSIGNMENTS[ri][s] || '' };
+      }
+    });
+    scheduleSave();
   }
   if (!state.results) state.results = {};
   if (!state.ffResults) state.ffResults = {};
@@ -1335,12 +1419,14 @@ function renderPlayerDetail(p) {
     }
 
     // Add projections for future rounds (only for alive teams)
-    // Uses hybrid model: API odds for next game, re-budgeted to match KFord totals
+    // Uses hardcoded projections from KenPom/KFord spreadsheet
     if (t.alive && t.nextRound >= 0 && t.nextRound < 6) {
-      const winProb = findOddsForTeam(t.name); // null if no API odds
-      const roundProbs = getTeamRoundProbs(t.seed, t.nextRound, winProb, t.name);
-      for (let fr = t.nextRound; fr < 6; fr++) {
-        data[fr].projected = roundProbs[fr] * t.seed * roundMultipliers[fr];
+      const hp = HARDCODED_PROJECTIONS[t.name];
+      if (hp) {
+        const roundKeys = ['r64','r32','s16','e8','ff','champ'];
+        for (let fr = t.nextRound; fr < 6; fr++) {
+          data[fr].projected = hp[roundKeys[fr]] || 0;
+        }
       }
     }
     return data;
@@ -1799,18 +1885,13 @@ function calcProjections() {
       if (nextRound < 0) continue; // Eliminated
       if (nextRound >= 6) continue; // Already champion, points already counted
 
-      // Get win probability from odds API (for next game)
-      const winProb = findOddsForTeam(t.name);
-
-      // Project forward using hybrid model:
-      // - Next game: use live API odds (if available)
-      // - Later rounds: re-budgeted to match KFord total expected points
-      const roundProbs = getTeamRoundProbs(seed, nextRound, winProb, t.name);
-      for (let futureRound = nextRound; futureRound < 6; futureRound++) {
-        const multiplier = futureRound + 1;
-        const expectedPts = roundProbs[futureRound] * seed * multiplier;
-
-        proj[t.owner] = (proj[t.owner] || 0) + expectedPts;
+      // Use hardcoded projections from KenPom/KFord spreadsheet
+      const hp = HARDCODED_PROJECTIONS[t.name];
+      if (hp) {
+        const roundKeys = ['r64','r32','s16','e8','ff','champ'];
+        for (let futureRound = nextRound; futureRound < 6; futureRound++) {
+          proj[t.owner] = (proj[t.owner] || 0) + (hp[roundKeys[futureRound]] || 0);
+        }
       }
     }
   });
@@ -1818,61 +1899,29 @@ function calcProjections() {
   return proj;
 }
 
+/* === API ODDS FETCHING (commented out — using hardcoded projections instead) ===
+ * Uncomment this function and the related UI button to re-enable live odds fetching.
+ * API key is still configured in server.js.
 async function fetchProjections() {
   if (!isCommissioner) { alert('Only the commissioner can update projections.'); return; }
-
   const btn = document.getElementById('proj-btn');
   const statusEl = document.getElementById('proj-status');
   const remainEl = document.getElementById('proj-remaining');
-  btn.disabled = true;
-  btn.textContent = 'Fetching odds...';
-
+  btn.disabled = true; btn.textContent = 'Fetching odds...';
   try {
     const res = await fetch('/api/odds');
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Failed to fetch odds');
-    }
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed to fetch odds'); }
     const data = await res.json();
-    oddsCache = data.odds || [];
-    oddsFetchedAt = new Date().toLocaleString();
-    const remaining = data.remaining;
-    const used = data.used;
-
-    // Calculate projections
+    oddsCache = data.odds || []; oddsFetchedAt = new Date().toLocaleString();
     projectedPoints = calcProjections();
-
-    statusEl.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
-    remainEl.textContent = `(${remaining} API calls remaining this month)`;
-
-    // Count how many teams got odds
-    let matched = 0, total = 0;
-    REGIONS.forEach((r, ri) => {
-      for (let s = 1; s <= 16; s++) {
-        const t = state.teams[ri]?.[s];
-        if (!t?.name) continue;
-        const nr = getTeamCurrentRound(ri, s);
-        if (nr < 0 || nr >= 6) continue;
-        total++;
-        if (findOddsForTeam(t.name) !== null) matched++;
-      }
-    });
-    statusEl.textContent += ` | Odds found for ${matched}/${total} alive teams`;
-
-    // Save odds + projections to server so everyone sees API-based data on page load
-    state.projections = projectedPoints;
-    state.oddsCache = oddsCache;
-    state.oddsFetchedAt = oddsFetchedAt;
-    scheduleSave();
-    renderAll();
-  } catch (err) {
-    statusEl.textContent = `Error: ${err.message}`;
-    remainEl.textContent = '';
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = '&#128202; Update Projections';
+    statusEl.textContent = 'Updated: ' + new Date().toLocaleTimeString();
+    remainEl.textContent = '(' + data.remaining + ' API calls remaining this month)';
+    state.projections = projectedPoints; state.oddsCache = oddsCache; state.oddsFetchedAt = oddsFetchedAt;
+    scheduleSave(); renderAll();
+  } catch (err) { statusEl.textContent = 'Error: ' + err.message; remainEl.textContent = ''; }
+  btn.disabled = false; btn.innerHTML = '&#128202; Update Projections';
 }
+=== END COMMENTED OUT API ODDS FETCHING === */
 
 // ===== ESPN SYNC =====
 function normalizeTeamName(name) {
@@ -2111,21 +2160,17 @@ function renderDebug() {
   html += `<div class="debug-section">`;
   html += `<h3>&#128202; Projection Raw Data</h3>`;
   html += `<div class="debug-meta">`;
-  html += `<strong>Odds data retrieved:</strong> ${oddsFetchedAt ? oddsFetchedAt : 'Not yet fetched — click "Update Projections" on Dashboard'}`;
-  html += `<br><strong>Odds cache:</strong> ${oddsCache ? oddsCache.length + ' events loaded' : 'Empty'}`;
-  html += `<br><strong>Projection method:</strong> Next game uses live API odds → future rounds use KFord-scaled probabilities`;
-  html += `<br><strong>KFord calibration:</strong> Historical seed probabilities are scaled per-team so totals match KFord expected values`;
-  html += `<br><strong>Formula:</strong> cumulativeProb × seed × roundMultiplier = expected points`;
-  html += `<br><strong>Fallback:</strong> Teams without KFord data use raw historical probabilities`;
+  html += `<strong>Projection source:</strong> KenPom/KFord pre-tournament expected points (hardcoded)`;
+  html += `<br><strong>Values:</strong> Expected points per round = probability × seed × round multiplier`;
   html += `</div></div>`;
 
   // Per-team breakdown
   html += `<div class="debug-section">`;
-  html += `<h3>&#127942; Per-Team Probability & Points Breakdown</h3>`;
+  html += `<h3>&#127942; Per-Team Expected Points Breakdown</h3>`;
   html += `<div style="overflow-x:auto;"><table class="debug-table">`;
-  html += `<tr><th>Team</th><th>Seed</th><th>Region</th><th>Owner</th><th>Status</th><th>Win Prob (Odds)</th>`;
-  roundNames.forEach(r => html += `<th>${r}<br><span style="font-size:0.8em;opacity:0.6;">prob → pts</span></th>`);
-  html += `<th>KFord</th><th>Total Proj.</th></tr>`;
+  html += `<tr><th>Team</th><th>Seed</th><th>Region</th><th>Owner</th><th>Status</th>`;
+  roundNames.forEach(r => html += `<th>${r}<br><span style="font-size:0.8em;opacity:0.6;">exp pts</span></th>`);
+  html += `<th>Total Proj.</th></tr>`;
 
   const points = calcPoints();
 
@@ -2138,24 +2183,11 @@ function renderDebug() {
       const nextRound = getTeamCurrentRound(ri, seed);
       const isElim = nextRound < 0;
       const isChamp = nextRound >= 6;
-      const winProb = findOddsForTeam(t.name);
 
       let statusText, statusClass;
       if (isElim) { statusText = 'Eliminated'; statusClass = 'debug-elim'; }
       else if (isChamp) { statusText = 'Champion!'; statusClass = 'pd-cell-win'; }
       else { statusText = `Playing ${roundNames[nextRound]}`; statusClass = 'pd-cell-actual'; }
-
-      let probText, probClass;
-      if (winProb !== null) {
-        const pct = (winProb * 100).toFixed(1);
-        probClass = winProb >= 0.65 ? 'high' : (winProb >= 0.4 ? 'med' : 'low');
-        probText = `${pct}%`;
-      } else {
-        const hist = HISTORICAL_ADVANCE_PROB[seed];
-        const histR64 = hist ? (hist[0]*100).toFixed(0)+'%' : '?';
-        probText = `Hist: ${histR64}`;
-        probClass = 'med';
-      }
 
       html += `<tr>`;
       html += `<td style="font-weight:600;">${t.name}</td>`;
@@ -2163,24 +2195,19 @@ function renderDebug() {
       html += `<td>${r}</td>`;
       html += `<td>${owner}</td>`;
       html += `<td class="${statusClass}">${statusText}</td>`;
-      html += `<td class="debug-prob ${probClass}">${probText}</td>`;
 
-      // Per-round breakdown
-      const roundProbs = getTeamRoundProbs(seed, nextRound, winProb, t.name);
+      // Per-round breakdown using hardcoded projections
+      const hp = HARDCODED_PROJECTIONS[t.name] || {};
+      const roundKeys = ['r64','r32','s16','e8','ff','champ'];
       let teamTotalProj = 0;
-      let teamElimAfterRound = -1; // track when team was eliminated
+      let teamElimAfterRound = -1;
 
       for (let round = 0; round < 6; round++) {
-        // Check if this round has actual results
-        let hasActual = false;
-        let actualWon = false;
-        let actualPts = 0;
-
+        let hasActual = false, actualWon = false, actualPts = 0;
         if (round < 4) {
           const mi = getMatchIndex(ri, round, seed);
           if (mi !== null && state.results[ri]?.[round]?.[mi] !== undefined) {
-            hasActual = true;
-            actualWon = state.results[ri][round][mi] === seed;
+            hasActual = true; actualWon = state.results[ri][round][mi] === seed;
             actualPts = actualWon ? seed * roundMultipliers[round] : 0;
           }
         } else if (round === 4) {
@@ -2188,8 +2215,7 @@ function renderDebug() {
           if (rw === seed) {
             const fmi = getFFMatchIndex(0, ri);
             if (fmi !== null && state.ffResults[0]?.[fmi] !== undefined) {
-              hasActual = true;
-              actualWon = state.ffResults[0][fmi] === `${ri}-${seed}`;
+              hasActual = true; actualWon = state.ffResults[0][fmi] === `${ri}-${seed}`;
               actualPts = actualWon ? seed * 5 : 0;
             }
           }
@@ -2198,8 +2224,7 @@ function renderDebug() {
           if (rw === seed && state.ffResults[0]) {
             const fmi = getFFMatchIndex(0, ri);
             if (fmi !== null && state.ffResults[0][fmi] === `${ri}-${seed}` && state.ffResults[1]?.[0] !== undefined) {
-              hasActual = true;
-              actualWon = state.ffResults[1][0] === `${ri}-${seed}`;
+              hasActual = true; actualWon = state.ffResults[1][0] === `${ri}-${seed}`;
               actualPts = actualWon ? seed * 6 : 0;
             }
           }
@@ -2216,25 +2241,15 @@ function renderDebug() {
             teamElimAfterRound = round;
           }
         } else if (!isElim && round >= nextRound) {
-          // Projected using hybrid model (API + KFord-scaled)
-          const cumProbVal = roundProbs[round];
-          const expectedPts = cumProbVal * seed * roundMultipliers[round];
+          const expectedPts = hp[roundKeys[round]] || 0;
           teamTotalProj += expectedPts;
-
-          const cumPct = (cumProbVal * 100).toFixed(1);
           const epStr = expectedPts.toFixed(1);
-          const probCls = cumProbVal >= 0.5 ? 'high' : (cumProbVal >= 0.2 ? 'med' : 'low');
-          const hasKford = KFORD_EXPECTED[t.name] !== undefined;
-          const source = (round === nextRound && winProb !== null) ? '' : (hasKford ? ' <span style="font-size:0.7em;opacity:0.5;">kf</span>' : ' <span style="font-size:0.7em;opacity:0.5;">hist</span>');
-
-          html += `<td><span class="debug-prob ${probCls}">${cumPct}%</span>${source}<br><span class="pd-cell-projected">${epStr}</span></td>`;
+          html += `<td><span class="pd-cell-projected">${epStr}</span></td>`;
         } else {
           html += `<td class="pd-cell-empty">—</td>`;
         }
       }
 
-      const kfVal = KFORD_EXPECTED[t.name];
-      html += `<td style="color:var(--accent);font-weight:600;">${kfVal !== undefined ? kfVal.toFixed(1) : '—'}</td>`;
       html += `<td style="font-weight:800;">${teamTotalProj.toFixed(1)}</td>`;
       html += `</tr>`;
     }
@@ -2242,33 +2257,7 @@ function renderDebug() {
 
   html += `</table></div></div>`;
 
-  // Raw odds data section
-  if (oddsCache && oddsCache.length > 0) {
-    html += `<div class="debug-section">`;
-    html += `<h3>&#128220; Raw Odds Data (${oddsCache.length} events)</h3>`;
-    html += `<div style="overflow-x:auto;"><table class="debug-table">`;
-    html += `<tr><th>Event</th><th>Home</th><th>Away</th><th>Bookmaker</th><th>Home ML</th><th>Home Prob</th><th>Away ML</th><th>Away Prob</th></tr>`;
-
-    oddsCache.forEach(event => {
-      const bk = event.bookmakers?.[0];
-      const h2h = bk?.markets?.find(m => m.key === 'h2h');
-      const homeOdds = h2h?.outcomes?.find(o => o.name === event.home_team);
-      const awayOdds = h2h?.outcomes?.find(o => o.name === event.away_team);
-
-      html += `<tr>`;
-      html += `<td style="font-size:0.78em;color:var(--text2);">${event.sport_title || ''}</td>`;
-      html += `<td style="font-weight:600;">${event.home_team}</td>`;
-      html += `<td style="font-weight:600;">${event.away_team}</td>`;
-      html += `<td style="font-size:0.78em;">${bk?.title || '—'}</td>`;
-      html += `<td class="debug-prob">${homeOdds?.price ?? '—'}</td>`;
-      html += `<td class="debug-prob">${homeOdds ? (moneylineToProb(homeOdds.price)*100).toFixed(1)+'%' : '—'}</td>`;
-      html += `<td class="debug-prob">${awayOdds?.price ?? '—'}</td>`;
-      html += `<td class="debug-prob">${awayOdds ? (moneylineToProb(awayOdds.price)*100).toFixed(1)+'%' : '—'}</td>`;
-      html += `</tr>`;
-    });
-
-    html += `</table></div></div>`;
-  }
+  /* Raw odds data section removed — using hardcoded projections */
 
   el.innerHTML = html;
 }
