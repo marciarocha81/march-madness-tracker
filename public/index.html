@@ -423,6 +423,22 @@
   .pd-round-name { font-size: 0.72em; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
   .pd-round-val { font-size: 1.3em; font-weight: 800; }
 
+  /* DEBUG PAGE */
+  .debug-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+  .debug-section h3 { font-size: 1.1em; font-weight: 800; margin-bottom: 14px; color: var(--accent2); }
+  .debug-meta { color: var(--text2); font-size: 0.85em; margin-bottom: 16px; }
+  .debug-meta strong { color: var(--text); }
+  .debug-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+  .debug-table th { text-align: left; padding: 8px 6px; color: var(--text2); font-size: 0.78em; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--border); }
+  .debug-table td { padding: 7px 6px; border-bottom: 1px solid rgba(60,85,120,0.15); }
+  .debug-table tr:hover { background: rgba(255,107,53,0.04); }
+  .debug-prob { font-family: 'Courier New', monospace; }
+  .debug-prob.high { color: var(--green); }
+  .debug-prob.med { color: var(--accent2); }
+  .debug-prob.low { color: var(--red); }
+  .debug-elim { color: var(--red); font-weight: 700; }
+  .debug-no-odds { color: var(--text2); font-style: italic; }
+
   @media (max-width: 768px) {
     header { padding: 14px 16px; } header h1 { font-size: 1.2em; }
     .container { padding: 12px; } .bracket-round { min-width: 160px; }
@@ -469,6 +485,7 @@
     <button data-view="players">Players</button>
     <button data-view="setup">Setup</button>
     <button data-view="log">Log</button>
+    <button data-view="debug" id="debug-nav-btn" style="display:none;">Proj. Data</button>
   </nav>
 </header>
 
@@ -524,6 +541,9 @@
   <div id="players" class="view">
     <div id="players-list"></div>
     <div id="player-detail" style="display:none;"></div>
+  </div>
+  <div id="debug" class="view">
+    <div id="debug-content"></div>
   </div>
 </div>
 
@@ -708,7 +728,14 @@ function setupNav() {
   });
 }
 
-function renderAll() { renderDashboard(); renderSetup(); renderBracket(); renderLog(); renderPlayers(); updateSyncBar(); }
+function renderAll() {
+  // Recalculate projections on every render if odds are cached, so numbers stay in sync with results
+  if (oddsCache && oddsCache.length > 0) {
+    projectedPoints = calcProjections();
+    state.projections = projectedPoints;
+  }
+  renderDashboard(); renderSetup(); renderBracket(); renderLog(); renderPlayers(); updateSyncBar(); renderDebug();
+}
 
 // ===== SCORING =====
 function calcPoints() {
@@ -1560,6 +1587,7 @@ async function fetchProjections() {
     }
     const data = await res.json();
     oddsCache = data.odds || [];
+    oddsFetchedAt = new Date().toLocaleString();
     const remaining = data.remaining;
     const used = data.used;
 
@@ -1812,10 +1840,184 @@ async function syncESPN() {
   if (dashBtn) { dashBtn.disabled = false; dashBtn.innerHTML = '&#127936; Sync Results from ESPN'; }
 }
 
-// Show/hide sync bar based on commissioner status
+// Show/hide sync bar and debug nav based on commissioner status
 function updateSyncBar() {
   const bar = document.getElementById('sync-bar');
   if (bar) bar.style.display = isCommissioner ? 'block' : 'none';
+  const debugNav = document.getElementById('debug-nav-btn');
+  if (debugNav) debugNav.style.display = isCommissioner ? '' : 'none';
+}
+
+// ===== DEBUG / PROJECTIONS DATA PAGE =====
+let oddsFetchedAt = null; // timestamp of last odds fetch
+
+function renderDebug() {
+  const el = document.getElementById('debug-content');
+  if (!el) return;
+  if (!isCommissioner) { el.innerHTML = ''; return; }
+
+  const roundNames = ['R64','R32','Sweet 16','Elite 8','Final Four','Championship'];
+  const roundMultipliers = [1,2,3,4,5,6];
+
+  let html = '';
+
+  // Header
+  html += `<div class="debug-section">`;
+  html += `<h3>&#128202; Projection Data & Diagnostics</h3>`;
+  html += `<div class="debug-meta">`;
+  html += `<strong>Odds data retrieved:</strong> ${oddsFetchedAt ? oddsFetchedAt : 'Not yet fetched — click "Update Projections" on Dashboard'}`;
+  html += `<br><strong>Odds cache:</strong> ${oddsCache ? oddsCache.length + ' events loaded' : 'Empty'}`;
+  html += `<br><strong>Projection method:</strong> Next round uses actual moneyline odds → future rounds use winProb × 0.85 discount per round`;
+  html += `<br><strong>Formula:</strong> cumulativeProb × seed × roundMultiplier = expected points`;
+  html += `</div></div>`;
+
+  // Per-team breakdown
+  html += `<div class="debug-section">`;
+  html += `<h3>&#127942; Per-Team Probability & Points Breakdown</h3>`;
+  html += `<div style="overflow-x:auto;"><table class="debug-table">`;
+  html += `<tr><th>Team</th><th>Seed</th><th>Region</th><th>Owner</th><th>Status</th><th>Win Prob (Odds)</th>`;
+  roundNames.forEach(r => html += `<th>${r}<br><span style="font-size:0.8em;opacity:0.6;">prob → pts</span></th>`);
+  html += `<th>Total Proj.</th></tr>`;
+
+  const points = calcPoints();
+
+  REGIONS.forEach((r, ri) => {
+    for (let seed = 1; seed <= 16; seed++) {
+      const t = state.teams[ri]?.[seed];
+      if (!t?.name) continue;
+
+      const owner = t.owner ? (state.playerNames[t.owner] || t.owner) : 'Unassigned';
+      const nextRound = getTeamCurrentRound(ri, seed);
+      const isElim = nextRound < 0;
+      const isChamp = nextRound >= 6;
+      const winProb = findOddsForTeam(t.name);
+
+      let statusText, statusClass;
+      if (isElim) { statusText = 'Eliminated'; statusClass = 'debug-elim'; }
+      else if (isChamp) { statusText = 'Champion!'; statusClass = 'pd-cell-win'; }
+      else { statusText = `Playing ${roundNames[nextRound]}`; statusClass = 'pd-cell-actual'; }
+
+      let probText, probClass;
+      if (winProb !== null) {
+        const pct = (winProb * 100).toFixed(1);
+        probClass = winProb >= 0.65 ? 'high' : (winProb >= 0.4 ? 'med' : 'low');
+        probText = `${pct}%`;
+      } else {
+        probText = 'No odds';
+        probClass = '';
+      }
+
+      html += `<tr>`;
+      html += `<td style="font-weight:600;">${t.name}</td>`;
+      html += `<td>${seed}</td>`;
+      html += `<td>${r}</td>`;
+      html += `<td>${owner}</td>`;
+      html += `<td class="${statusClass}">${statusText}</td>`;
+      html += `<td class="debug-prob ${probClass}">${probText}</td>`;
+
+      // Per-round breakdown
+      let cumProb = 1.0;
+      let teamTotalProj = 0;
+      let teamElimAfterRound = -1; // track when team was eliminated
+
+      for (let round = 0; round < 6; round++) {
+        // Check if this round has actual results
+        let hasActual = false;
+        let actualWon = false;
+        let actualPts = 0;
+
+        if (round < 4) {
+          const mi = getMatchIndex(ri, round, seed);
+          if (mi !== null && state.results[ri]?.[round]?.[mi] !== undefined) {
+            hasActual = true;
+            actualWon = state.results[ri][round][mi] === seed;
+            actualPts = actualWon ? seed * roundMultipliers[round] : 0;
+          }
+        } else if (round === 4) {
+          const rw = getRegionWinner(ri);
+          if (rw === seed) {
+            const fmi = getFFMatchIndex(0, ri);
+            if (fmi !== null && state.ffResults[0]?.[fmi] !== undefined) {
+              hasActual = true;
+              actualWon = state.ffResults[0][fmi] === `${ri}-${seed}`;
+              actualPts = actualWon ? seed * 5 : 0;
+            }
+          }
+        } else if (round === 5) {
+          const rw = getRegionWinner(ri);
+          if (rw === seed && state.ffResults[0]) {
+            const fmi = getFFMatchIndex(0, ri);
+            if (fmi !== null && state.ffResults[0][fmi] === `${ri}-${seed}` && state.ffResults[1]?.[0] !== undefined) {
+              hasActual = true;
+              actualWon = state.ffResults[1][0] === `${ri}-${seed}`;
+              actualPts = actualWon ? seed * 6 : 0;
+            }
+          }
+        }
+
+        if (teamElimAfterRound >= 0 && round > teamElimAfterRound) {
+          html += `<td class="pd-cell-empty">—</td>`;
+        } else if (hasActual) {
+          if (actualWon) {
+            html += `<td class="pd-cell-win">${actualPts} <span style="font-size:0.75em;color:var(--text2);">(won)</span></td>`;
+            teamTotalProj += actualPts;
+          } else {
+            html += `<td class="debug-elim">X (lost)</td>`;
+            teamElimAfterRound = round;
+          }
+        } else if (!isElim && winProb !== null && round >= nextRound) {
+          // Projected
+          let roundProb = (round === nextRound) ? winProb : winProb * 0.85;
+          cumProb *= roundProb;
+          const expectedPts = cumProb * seed * roundMultipliers[round];
+          teamTotalProj += expectedPts;
+
+          const cumPct = (cumProb * 100).toFixed(1);
+          const epStr = expectedPts.toFixed(1);
+          const probCls = cumProb >= 0.5 ? 'high' : (cumProb >= 0.2 ? 'med' : 'low');
+
+          html += `<td><span class="debug-prob ${probCls}">${cumPct}%</span><br><span class="pd-cell-projected">${epStr}</span></td>`;
+        } else {
+          html += `<td class="pd-cell-empty">—</td>`;
+        }
+      }
+
+      html += `<td style="font-weight:800;">${teamTotalProj.toFixed(1)}</td>`;
+      html += `</tr>`;
+    }
+  });
+
+  html += `</table></div></div>`;
+
+  // Raw odds data section
+  if (oddsCache && oddsCache.length > 0) {
+    html += `<div class="debug-section">`;
+    html += `<h3>&#128220; Raw Odds Data (${oddsCache.length} events)</h3>`;
+    html += `<div style="overflow-x:auto;"><table class="debug-table">`;
+    html += `<tr><th>Event</th><th>Home</th><th>Away</th><th>Bookmaker</th><th>Home ML</th><th>Home Prob</th><th>Away ML</th><th>Away Prob</th></tr>`;
+
+    oddsCache.forEach(event => {
+      const bk = event.bookmakers?.[0];
+      const h2h = bk?.markets?.find(m => m.key === 'h2h');
+      const homeOdds = h2h?.outcomes?.find(o => o.name === event.home_team);
+      const awayOdds = h2h?.outcomes?.find(o => o.name === event.away_team);
+
+      html += `<tr>`;
+      html += `<td style="font-size:0.78em;color:var(--text2);">${event.sport_title || ''}</td>`;
+      html += `<td style="font-weight:600;">${event.home_team}</td>`;
+      html += `<td style="font-weight:600;">${event.away_team}</td>`;
+      html += `<td style="font-size:0.78em;">${bk?.title || '—'}</td>`;
+      html += `<td class="debug-prob">${homeOdds?.price ?? '—'}</td>`;
+      html += `<td class="debug-prob">${homeOdds ? (moneylineToProb(homeOdds.price)*100).toFixed(1)+'%' : '—'}</td>`;
+      html += `<td class="debug-prob">${awayOdds?.price ?? '—'}</td>`;
+      html += `<td class="debug-prob">${awayOdds ? (moneylineToProb(awayOdds.price)*100).toFixed(1)+'%' : '—'}</td>`;
+      html += `</tr>`;
+    });
+
+    html += `</table></div></div>`;
+  }
+
+  el.innerHTML = html;
 }
 
 init();
