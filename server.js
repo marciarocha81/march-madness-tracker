@@ -16,26 +16,63 @@ const DATA_FILE = path.join(DATA_DIR, 'tournament-data.json');
 app.use(express.json());
 app.use(express.static('public'));
 
-// Default empty state
-const DEFAULT_STATE = {
-  playerNames: {},
-  teams: {},
-  results: {},
-  ffResults: {},
-  log: []
+// ===== HARDCODED BRACKET, DRAFT & PLAYER NAMES =====
+// These are the canonical starting state — always applied on top of saved data
+const PLAYER_NAMES = {A:'Adam',B:'Brock',C:'Chase',D:'Colin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
+
+const DEFAULT_BRACKET = {
+  0:{1:'Florida',2:'Houston',3:'Illinois',4:'Nebraska',5:'Vanderbilt',6:'North Carolina',7:'Saint Marys',8:'Clemson',9:'Iowa',10:'Texas A&M',11:'VCU',12:'McNeese',13:'Troy',14:'Penn',15:'Idaho',16:'PV A&M/Lehigh'},
+  1:{1:'Duke',2:'UConn',3:'Michigan St',4:'Kansas',5:'St. Johns',6:'Louisville',7:'UCLA',8:'Ohio St',9:'TCU',10:'UCF',11:'South Florida',12:'Northern Iowa',13:'Cal Baptist',14:'North Dakota St',15:'Furman',16:'Siena'},
+  2:{1:'Michigan',2:'Iowa St',3:'Virginia',4:'Alabama',5:'Texas Tech',6:'Tennessee',7:'Kentucky',8:'Georgia',9:'Saint Louis',10:'Santa Clara',11:'Miami OH/SMU',12:'Akron',13:'Hofstra',14:'Wright St',15:'Tennessee St',16:'UMBC/Howard'},
+  3:{1:'Arizona',2:'Purdue',3:'Gonzaga',4:'Arkansas',5:'Wisconsin',6:'BYU',7:'Miami',8:'Villanova',9:'Utah St',10:'Missouri',11:'Texas/NC State',12:'High Point',13:'Hawaii',14:'Kennesaw St',15:'Queens',16:'LIU'}
 };
 
-// Load state from file
+const DRAFT_ASSIGNMENTS = {
+  0:{1:'D',2:'C',3:'I',4:'D',5:'E',6:'C',7:'G',8:'I',9:'C',10:'I',11:'G',12:'E',13:'H',14:'D',15:'H',16:'C'},
+  1:{1:'E',2:'H',3:'F',4:'C',5:'A',6:'G',7:'I',8:'I',9:'B',10:'D',11:'H',12:'A',13:'B',14:'F',15:'D',16:''},
+  2:{1:'E',2:'D',3:'H',4:'F',5:'G',6:'B',7:'B',8:'A',9:'B',10:'F',11:'C',12:'B',13:'H',14:'G',15:'E',16:'I'},
+  3:{1:'D',2:'A',3:'E',4:'H',5:'A',6:'F',7:'F',8:'E',9:'I',10:'A',11:'G',12:'C',13:'B',14:'G',15:'F',16:'A'}
+};
+
+// Build the canonical teams state from bracket + draft
+function buildCanonicalTeams() {
+  const teams = {};
+  for (let ri = 0; ri < 4; ri++) {
+    teams[ri] = {};
+    for (let s = 1; s <= 16; s++) {
+      teams[ri][s] = { name: DEFAULT_BRACKET[ri][s], owner: DRAFT_ASSIGNMENTS[ri][s] || '' };
+    }
+  }
+  return teams;
+}
+
+// Load state from file, always ensuring bracket/draft/names are correct
 function loadData() {
+  let data = { playerNames: {}, teams: {}, results: {}, ffResults: {}, log: [] };
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf8');
-      return JSON.parse(raw);
+      data = JSON.parse(raw);
     }
   } catch (err) {
     console.error('Error loading data:', err.message);
   }
-  return { ...DEFAULT_STATE };
+  // Always apply canonical names, bracket, and draft on top of saved data
+  // This preserves results/scores but ensures teams and owners are always correct
+  data.playerNames = { ...PLAYER_NAMES };
+  const canonical = buildCanonicalTeams();
+  for (let ri = 0; ri < 4; ri++) {
+    if (!data.teams[ri]) data.teams[ri] = {};
+    for (let s = 1; s <= 16; s++) {
+      if (!data.teams[ri][s]) data.teams[ri][s] = {};
+      data.teams[ri][s].name = canonical[ri][s].name;
+      data.teams[ri][s].owner = canonical[ri][s].owner;
+    }
+  }
+  if (!data.results) data.results = {};
+  if (!data.ffResults) data.ffResults = {};
+  if (!data.log) data.log = [];
+  return data;
 }
 
 // Save state to file
