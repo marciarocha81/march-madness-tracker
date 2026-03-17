@@ -1210,13 +1210,8 @@ function clearDownstream(ri,round,mi) {
   if(round<=3&&getRegionWinner(ri)===null){if(state.ffResults[0]){const f=(ri===0||ri===1)?0:1;if(state.ffResults[0][f]!==undefined){delete state.ffResults[0][f];if(state.ffResults[1])delete state.ffResults[1][0];}}}
 }
 
-function addLog(ri,round,seed) {
-  const rn=['R64','R32','Sweet 16','Elite 8','Final Four','Championship'];
-  const multiplier = round + 1; // round 0=R64(1x), 1=R32(2x), 2=S16(3x), 3=E8(4x), 4=FF(5x), 5=Champ(6x)
-  const pts = seed * multiplier;
-  const t=state.teams[ri]?.[seed]; if(!t)return;
-  state.log.push({time:new Date().toISOString(),region:REGIONS[ri],round:rn[round]||`Round ${round}`,seed,team:t.name,owner:t.owner,points:pts,multiplier:multiplier+'x'});
-}
+// addLog removed — log is now rebuilt dynamically from bracket results in renderLog()
+function addLog() {}
 
 // ===== LOG =====
 // Rebuilds the log dynamically from actual bracket results (never stale)
