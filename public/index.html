@@ -484,7 +484,7 @@
     <button data-view="bracket">Bracket</button>
     <button data-view="players">Players</button>
     <button data-view="setup">Setup</button>
-    <button data-view="log">Log</button>
+    <!-- Log tab removed -->
     <button data-view="debug" id="debug-nav-btn">Projection Data</button>
   </nav>
 </header>
@@ -495,6 +495,7 @@
     <div class="stats-grid" id="stats-grid"></div>
     <div id="dash-sync-bar" class="proj-btn-bar" style="display:none;">
       <button class="btn btn-primary" onclick="syncESPN()" id="dash-sync-btn" style="font-size:0.95em;padding:8px 20px;">&#127936; Sync Results from ESPN</button>
+      <span id="dash-sync-status" style="color:var(--text2);font-size:0.85em;"></span>
     </div>
     <!-- API projections button hidden — kept for potential future use -->
     <div id="proj-btn-bar" class="proj-btn-bar" style="display:none;">
@@ -2196,11 +2197,18 @@ async function syncESPN() {
 
     logLines.push(`<div style="margin-top:8px;font-weight:600;color:var(--text)">Applied: ${applied} | Skipped: ${skipped} | Not matched: ${notFound}</div>`);
     logEl.innerHTML = logLines.join('');
-    statusEl.textContent = `Last synced: ${new Date().toLocaleTimeString()}`;
+    const syncTime = new Date().toLocaleString();
+    statusEl.textContent = `Last synced: ${syncTime}`;
+    const dashStatus = document.getElementById('dash-sync-status');
+    if (dashStatus) dashStatus.textContent = `Last synced: ${syncTime}`;
+    state.lastSynced = syncTime;
 
     if (applied > 0) {
       scheduleSave();
       renderAll();
+    } else {
+      // Even if no new results, save the sync timestamp
+      scheduleSave();
     }
 
   } catch (err) {
@@ -2217,6 +2225,12 @@ function updateSyncBar() {
   if (bar) bar.style.display = 'block';
   const dashBar = document.getElementById('dash-sync-bar');
   if (dashBar) dashBar.style.display = 'flex';
+  // Show last-synced timestamp if available
+  const ts = state.lastSynced ? `Last synced: ${state.lastSynced}` : '';
+  const dashStatus = document.getElementById('dash-sync-status');
+  if (dashStatus && !dashStatus.textContent) dashStatus.textContent = ts;
+  const syncStatus = document.getElementById('sync-status');
+  if (syncStatus && !syncStatus.textContent) syncStatus.textContent = ts;
 }
 
 // ===== DEBUG / PROJECTIONS DATA PAGE =====
