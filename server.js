@@ -21,10 +21,10 @@ app.use(express.static('public'));
 const PLAYER_NAMES = {A:'Adam',B:'Brock',C:'Chase',D:'Colin',E:'Dalton',F:'Eric',G:'Max',H:'Nick',I:'Zach'};
 
 const DEFAULT_BRACKET = {
-  0:{1:'Florida',2:'Houston',3:'Illinois',4:'Nebraska',5:'Vanderbilt',6:'North Carolina',7:'Saint Marys',8:'Clemson',9:'Iowa',10:'Texas A&M',11:'VCU',12:'McNeese',13:'Troy',14:'Penn',15:'Idaho',16:'PV A&M/Lehigh'},
+  0:{1:'Florida',2:'Houston',3:'Illinois',4:'Nebraska',5:'Vanderbilt',6:'North Carolina',7:'Saint Marys',8:'Clemson',9:'Iowa',10:'Texas A&M',11:'VCU',12:'McNeese',13:'Troy',14:'Penn',15:'Idaho',16:'Prairie View'},
   1:{1:'Duke',2:'UConn',3:'Michigan St',4:'Kansas',5:'St. Johns',6:'Louisville',7:'UCLA',8:'Ohio St',9:'TCU',10:'UCF',11:'South Florida',12:'Northern Iowa',13:'Cal Baptist',14:'North Dakota St',15:'Furman',16:'Siena'},
-  2:{1:'Michigan',2:'Iowa St',3:'Virginia',4:'Alabama',5:'Texas Tech',6:'Tennessee',7:'Kentucky',8:'Georgia',9:'Saint Louis',10:'Santa Clara',11:'Miami OH/SMU',12:'Akron',13:'Hofstra',14:'Wright St',15:'Tennessee St',16:'UMBC/Howard'},
-  3:{1:'Arizona',2:'Purdue',3:'Gonzaga',4:'Arkansas',5:'Wisconsin',6:'BYU',7:'Miami',8:'Villanova',9:'Utah St',10:'Missouri',11:'Texas/NC State',12:'High Point',13:'Hawaii',14:'Kennesaw St',15:'Queens',16:'LIU'}
+  2:{1:'Michigan',2:'Iowa St',3:'Virginia',4:'Alabama',5:'Texas Tech',6:'Tennessee',7:'Kentucky',8:'Georgia',9:'Saint Louis',10:'Santa Clara',11:'Miami OH',12:'Akron',13:'Hofstra',14:'Wright St',15:'Tennessee St',16:'Howard'},
+  3:{1:'Arizona',2:'Purdue',3:'Gonzaga',4:'Arkansas',5:'Wisconsin',6:'BYU',7:'Miami',8:'Villanova',9:'Utah St',10:'Missouri',11:'Texas',12:'High Point',13:'Hawaii',14:'Kennesaw St',15:'Queens',16:'LIU'}
 };
 
 const DRAFT_ASSIGNMENTS = {
@@ -87,6 +87,11 @@ function saveData(data) {
 }
 
 // ===== API ROUTES =====
+
+// Health check endpoint for Render
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
+});
 
 // GET the full tournament state (anyone can view)
 app.get('/api/data', (req, res) => {
