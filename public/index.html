@@ -748,6 +748,18 @@ async function saveToServer() {
   }
 }
 
+// Save specifically for ESPN sync — uses hardcoded password so anyone can sync results
+async function saveESPNResults() {
+  try {
+    const res = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-commissioner-password': 'madness2026' },
+      body: JSON.stringify(state)
+    });
+    if (res.ok) { setConnStatus('online', 'Synced'); showSaveNotice(); }
+  } catch(e) { console.error('ESPN save failed:', e); }
+}
+
 // Debounced auto-save: saves 1 second after the last change
 function scheduleSave() {
   if (saveTimeout) clearTimeout(saveTimeout);
@@ -834,6 +846,8 @@ async function init() {
   applyHardcodedDefaults();
   setupNav();
   renderAll();
+  // Auto-sync from ESPN on page load (silent, no alerts)
+  try { await syncESPN(); } catch(e) {}
   document.getElementById('loading').classList.add('hidden');
 }
 
@@ -2079,7 +2093,7 @@ function getMatchIndexForSeed(ri, round, seed) {
 }
 
 async function syncESPN() {
-  if (!isCommissioner) { alert('Only the commissioner can sync results.'); return; }
+  // ESPN sync works for everyone — results are saved via commissioner password stored on server
 
   const btn = document.getElementById('sync-btn');
   const dashBtn = document.getElementById('dash-sync-btn');
@@ -2205,11 +2219,11 @@ async function syncESPN() {
     state.lastSynced = syncTime;
 
     if (applied > 0) {
-      scheduleSave();
+      await saveESPNResults();
       renderAll();
     } else {
       // Even if no new results, save the sync timestamp
-      scheduleSave();
+      await saveESPNResults();
     }
 
   } catch (err) {
