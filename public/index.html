@@ -1023,7 +1023,7 @@ function renderDashboard() {
   document.getElementById('leaderboard').innerHTML = sorted.map((p,i)=>{
     const dn=state.playerNames[p]||p, color=PLAYER_COLORS[PLAYERS.indexOf(p)], teams=getPlayerTeams(p);
     const projVal = (proj[p]||0).toFixed(1);
-    return `<div class="player-card rank-${i+1}" style="animation-delay:${i*80}ms">
+    return `<div class="player-card rank-${i+1}" style="animation-delay:${i*80}ms;cursor:pointer;" onclick="selectedPlayer='${p}';switchToTab('players');history.pushState({player:'${p}'},'','#player-${p}');">
       <div class="rank-badge ${i<3?'':'default'}">${i<3?trophies[i]:i+1}</div>
       <div class="player-color-bar" style="background:${color}"></div>
       <div class="player-info"><div class="player-name">${dn}</div>
