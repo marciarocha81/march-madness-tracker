@@ -1245,7 +1245,7 @@ function formatGameTooltip(game) {
   const d = game.date ? new Date(game.date) : null;
   let parts = [];
   if (d) {
-    parts.push(`<span class="tt-time">${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</span>`);
+    parts.push(`<span class="tt-time">${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',hour12:true})}</span>`);
   }
   if (game.broadcast) parts.push(`<span class="tt-broadcast">${game.broadcast}</span>`);
   if (game.venue) parts.push(`<span class="tt-venue">${game.venue}</span>`);
@@ -1278,7 +1278,7 @@ function renderBracket() {
         if(ttGame&&!hasResult&&!ttGame.completed){
           const gd=ttGame.date?new Date(ttGame.date):null;
           const parts=[];
-          if(gd)parts.push(gd.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' '+gd.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}));
+          if(gd)parts.push(gd.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' '+gd.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',hour12:true}));
           if(ttGame.broadcast)parts.push(ttGame.broadcast);
           if(parts.length)schedLine=`<div class="matchup-schedule">${parts.join(' \u00b7 ')}</div>`;
         }
@@ -1435,7 +1435,7 @@ function renderSchedule() {
     html += `<div class="schedule-section"><h3>&#128197; ${dateLabel}</h3>`;
     games.forEach(g => {
       const d = g.date ? new Date(g.date) : null;
-      const timeStr = d ? d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'}) : '';
+      const timeStr = d ? d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit', hour12:true}) : '';
       const isLive = !g.completed && g.status !== 'Scheduled' && g.status !== 'Postponed';
       const isFinal = g.completed;
       const statusCls = isLive ? 'live' : isFinal ? 'final' : '';
