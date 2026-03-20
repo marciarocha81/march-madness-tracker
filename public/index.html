@@ -2409,9 +2409,9 @@ async function syncESPN() {
     }
 
     logLines.push(`<div style="margin-top:8px;font-weight:600;color:var(--text)">Applied: ${applied} | Skipped: ${skipped} | Not matched: ${notFound}</div>`);
-    logEl.innerHTML = logLines.join('');
+    if (logEl) logEl.innerHTML = logLines.join('');
     const syncTime = new Date().toLocaleString();
-    statusEl.textContent = `Last synced: ${syncTime}`;
+    if (statusEl) statusEl.textContent = `Last synced: ${syncTime}`;
     const dashStatus = document.getElementById('dash-sync-status');
     if (dashStatus) dashStatus.textContent = `Last synced: ${syncTime}`;
     state.lastSynced = syncTime;
@@ -2425,7 +2425,8 @@ async function syncESPN() {
     }
 
   } catch (err) {
-    logEl.innerHTML = `<div style="color:var(--red)">Error fetching scores: ${err.message}. Try again in a moment.</div>`;
+    if (logEl) logEl.innerHTML = `<div style="color:var(--red)">Error fetching scores: ${err.message}. Try again in a moment.</div>`;
+    console.error('ESPN sync error:', err.message);
   }
 
   if (btn) { btn.disabled = false; btn.innerHTML = '&#127936; Sync Results from ESPN'; }
