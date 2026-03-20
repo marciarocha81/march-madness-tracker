@@ -263,6 +263,12 @@
   .commissioner-mode .matchup-team { cursor: pointer; }
   .commissioner-mode .matchup-team:hover { background: rgba(255,107,53,0.08); }
 
+  /* MATCHUP SCHEDULE LINE */
+  .matchup-schedule {
+    font-size: 0.62em; color: var(--text2); text-align: center; padding: 2px 4px 1px;
+    opacity: 0.7; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
   /* MATCHUP TOOLTIP */
   .matchup { position: relative; }
   .matchup-tooltip {
@@ -1265,10 +1271,18 @@ function renderBracket() {
       for(let mi=0;mi<nm;mi++){
         const teams=getMatchupTeams(ri,round,mi,o);
         const winner=state.results[ri]?.[round]?.[mi];
-        // Build tooltip from ESPN schedule data
+        // Build schedule info for unplayed matchups
         const ttGame=(teams[0]&&teams[1])?findGameForTeams(teams[0].name,teams[1].name):null;
-        const ttHtml=formatGameTooltip(ttGame);
-        html+=`<div class="matchup">${ttHtml}`;
+        const hasResult=winner!==undefined;
+        let schedLine='';
+        if(ttGame&&!hasResult&&!ttGame.completed){
+          const gd=ttGame.date?new Date(ttGame.date):null;
+          const parts=[];
+          if(gd)parts.push(gd.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' '+gd.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}));
+          if(ttGame.broadcast)parts.push(ttGame.broadcast);
+          if(parts.length)schedLine=`<div class="matchup-schedule">${parts.join(' \u00b7 ')}</div>`;
+        }
+        html+=`<div class="matchup">`;
         teams.forEach(t=>{
           if(!t){html+='<div class="matchup-team empty">TBD</div>';}
           else{
@@ -1280,7 +1294,7 @@ function renderBracket() {
               ${on?`<span class="owner-tag" style="background:${oc}22;color:${oc}">${on}</span>`:''}</div>`;
           }
         });
-        html+='</div>';
+        html+=schedLine+'</div>';
       }
       html+='</div></div>';
     }
