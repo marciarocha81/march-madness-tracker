@@ -128,23 +128,30 @@
     border: 1px solid var(--border); border-radius: 16px;
     padding: 18px 24px; margin-bottom: 24px;
   }
-  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .progress-header h3 { font-size: 0.85em; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 2px; }
   .progress-pct { font-size: 1.1em; font-weight: 800; color: var(--accent2); }
-  .progress-bar { height: 8px; background: rgba(60,85,120,0.3); border-radius: 4px; overflow: hidden; }
-  .progress-fill {
-    height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2), var(--green));
-    border-radius: 4px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); position: relative;
+  .progress-segments { display: flex; gap: 4px; }
+  .progress-segment { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .progress-seg-bar { height: 8px; background: rgba(60,85,120,0.3); border-radius: 4px; overflow: hidden; position: relative; }
+  .progress-seg-fill {
+    height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); position: relative;
   }
-  .progress-fill::after {
+  .progress-seg-fill.active {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .progress-seg-fill.complete {
+    background: linear-gradient(90deg, var(--green), #3ab8b0);
+  }
+  .progress-seg-fill.active::after {
     content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
     animation: shimmer 2s infinite;
   }
   @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-  .progress-rounds { display: flex; justify-content: space-between; margin-top: 8px; }
-  .progress-round { font-size: 0.7em; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; }
-  .progress-round.active { color: var(--accent2); font-weight: 700; }
+  .progress-seg-label { font-size: 0.7em; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; text-align: center; }
+  .progress-segment.active .progress-seg-label { color: var(--accent2); font-weight: 700; }
+  .progress-segment.complete .progress-seg-label { color: var(--green); font-weight: 600; }
 
   /* STATS */
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
@@ -253,6 +260,49 @@
   .matchup-team .seed { background: linear-gradient(135deg, var(--accent), #e85a2b); color: #fff; font-size: 0.7em; font-weight: 800; padding: 2px 6px; border-radius: 4px; min-width: 24px; text-align: center; }
   .matchup-team .owner-tag { margin-left: auto; font-size: 0.72em; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
   .matchup-team.empty { color: var(--text2); font-style: italic; cursor: default; }
+
+  /* MATCHUP TOOLTIP */
+  .matchup { position: relative; }
+  .matchup-tooltip {
+    display: none; position: absolute; z-index: 100; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); background: rgba(10,14,26,0.95); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; white-space: nowrap; font-size: 0.72em;
+    color: var(--text2); backdrop-filter: blur(10px); pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .matchup-tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--border);
+  }
+  .matchup:hover .matchup-tooltip { display: block; }
+  .matchup-tooltip .tt-time { color: var(--accent2); font-weight: 700; }
+  .matchup-tooltip .tt-venue { color: var(--text2); }
+  .matchup-tooltip .tt-broadcast { color: var(--green); font-weight: 600; }
+
+  /* SCHEDULE TAB */
+  .schedule-section { background: var(--surface); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
+  .schedule-section h3 { font-size: 1.15em; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .schedule-game {
+    display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+    border-bottom: 1px solid rgba(60,85,120,0.2); transition: background 0.2s; border-radius: 6px;
+  }
+  .schedule-game:last-child { border-bottom: none; }
+  .schedule-game:hover { background: rgba(255,255,255,0.02); }
+  .schedule-time { min-width: 90px; text-align: right; }
+  .schedule-time .time { font-size: 1em; font-weight: 700; color: var(--accent2); }
+  .schedule-time .date { font-size: 0.72em; color: var(--text2); }
+  .schedule-teams { flex: 1; }
+  .schedule-teams .team-line { display: flex; align-items: center; gap: 8px; font-size: 0.9em; padding: 2px 0; }
+  .schedule-teams .team-line .seed { background: linear-gradient(135deg, var(--accent), #e85a2b); color: #fff; font-size: 0.65em; font-weight: 800; padding: 1px 5px; border-radius: 3px; min-width: 20px; text-align: center; }
+  .schedule-teams .team-line.winner { font-weight: 700; color: var(--green); }
+  .schedule-teams .team-line.loser { opacity: 0.4; }
+  .schedule-teams .score { margin-left: auto; font-weight: 700; font-size: 0.95em; }
+  .schedule-meta { min-width: 120px; text-align: right; font-size: 0.75em; color: var(--text2); }
+  .schedule-status { font-weight: 600; }
+  .schedule-status.live { color: var(--red); }
+  .schedule-status.final { color: var(--green); }
+  .schedule-round-tag { display: inline-block; background: rgba(255,107,53,0.15); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 0.72em; font-weight: 600; margin-bottom: 4px; }
+  .schedule-empty { text-align: center; padding: 40px; color: var(--text2); font-size: 1em; }
 
   /* FINAL FOUR */
   .final-four-section {
@@ -483,6 +533,7 @@
   <nav>
     <button class="active" data-view="dashboard">Dashboard</button>
     <button data-view="bracket">Bracket</button>
+    <button data-view="schedule">Schedule</button>
     <button data-view="players">Players</button>
     <button data-view="setup">Setup</button>
     <!-- Log tab removed -->
@@ -542,6 +593,9 @@
       <h3>Scoring History</h3>
       <div id="points-log-list"></div>
     </div>
+  </div>
+  <div id="schedule" class="view">
+    <div id="schedule-content"></div>
   </div>
   <div id="players" class="view">
     <div id="players-list"></div>
@@ -656,7 +710,7 @@ const PLAYER_COLORS = ['#ff6b35','#ffd23f','#4ecdc4','#ff6b6b','#a78bfa','#60a5f
 const ROUND_NAMES = ['R64','R32','Sweet 16','Elite 8'];
 const FF_ROUND_NAMES = ['Final Four','Championship'];
 
-let state = { playerNames:{}, teams:{}, results:{}, ffResults:{}, log:[] };
+let state = { playerNames:{}, teams:{}, results:{}, ffResults:{}, log:[], schedule:[] };
 let saveTimeout = null;
 let isCommissioner = false;
 let commPassword = '';
@@ -906,7 +960,7 @@ function renderAll() {
   // Always recalculate projections — uses API odds when available, historical probabilities as fallback
   projectedPoints = calcProjections();
   state.projections = projectedPoints;
-  renderDashboard(); renderSetup(); renderBracket(); renderLog(); renderPlayers(); updateSyncBar(); renderDebug();
+  renderDashboard(); renderSetup(); renderBracket(); renderSchedule(); renderLog(); renderPlayers(); updateSyncBar(); renderDebug();
 }
 
 // ===== SCORING =====
@@ -993,10 +1047,28 @@ function renderDashboard() {
   const pct = tg.total>0 ? Math.round((tg.played/tg.total)*100) : 0;
   const cr = tg.currentRound;
 
+  // Build segmented progress bar — each round gets equal width, fills based on that round's completion
+  const segData=[
+    {label:'R64',done:tg.roundCounts[0],of:tg.roundExpected[0]},
+    {label:'R32',done:tg.roundCounts[1],of:tg.roundExpected[1]},
+    {label:'S16',done:tg.roundCounts[2],of:tg.roundExpected[2]},
+    {label:'E8',done:tg.roundCounts[3],of:tg.roundExpected[3]},
+    {label:'FF',done:tg.ffSemis,of:2},
+    {label:'Champ',done:tg.ffChamp,of:1}
+  ];
+  const segHtml=segData.map(s=>{
+    const segPct=s.of>0?Math.round((s.done/s.of)*100):0;
+    const isComplete=segPct>=100;
+    const isActive=segPct>0&&!isComplete;
+    const cls=isComplete?'complete':isActive?'active':'';
+    return `<div class="progress-segment ${cls}">
+      <div class="progress-seg-bar"><div class="progress-seg-fill ${cls}" style="width:${Math.min(segPct,100)}%"></div></div>
+      <div class="progress-seg-label">${s.label}${segPct>0?' '+segPct+'%':''}</div>
+    </div>`;
+  }).join('');
   document.getElementById('progress-bar').innerHTML = `
-    <div class="progress-header"><h3>Tournament Progress</h3><div class="progress-pct">${pct}%</div></div>
-    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-    <div class="progress-rounds">${['R64','R32','Sweet 16','Elite 8','Final Four','Champ'].map(r=>`<span class="progress-round ${cr===r?'active':''}">${r}</span>`).join('')}</div>`;
+    <div class="progress-header"><h3>Tournament Progress</h3><div class="progress-pct">${pct}% overall</div></div>
+    <div class="progress-segments">${segHtml}</div>`;
 
   const si=['&#127936;','&#9200;','&#128165;','&#11088;'];
   const sv=[tg.played,tg.total-tg.played,tg.biggestUpset||'—',Object.values(points).reduce((a,b)=>a+b,0)];
@@ -1054,7 +1126,9 @@ function countGames() {
   if(roundCounts[3]>=roundExpected[3]) currentRound='Final Four';
   if(state.ffResults[0]&&Object.keys(state.ffResults[0]).length>=2) currentRound='Champ';
   if(state.ffResults[1]&&Object.keys(state.ffResults[1]).length>=1) currentRound='Complete';
-  return {played,total,biggestUpset,currentRound};
+  const ffSemis=state.ffResults[0]?Object.keys(state.ffResults[0]).length:0;
+  const ffChamp=state.ffResults[1]?Object.keys(state.ffResults[1]).length:0;
+  return {played,total,biggestUpset,currentRound,roundCounts,roundExpected,ffSemis,ffChamp};
 }
 
 // ===== SETUP =====
@@ -1131,6 +1205,32 @@ function randomTeamAssignment() {
   scheduleSave(); renderAll();
 }
 
+// ===== SCHEDULE LOOKUP =====
+function findGameForTeams(team1Name, team2Name) {
+  if (!state.schedule || !state.schedule.length) return null;
+  const norm = s => (s||'').toLowerCase().replace(/[^a-z]/g,'');
+  const n1 = norm(team1Name), n2 = norm(team2Name);
+  for (const g of state.schedule) {
+    if (!g.competitors || g.competitors.length < 2) continue;
+    const c0 = norm(g.competitors[0].name), c1 = norm(g.competitors[1].name);
+    if ((c0.includes(n1) || n1.includes(c0) || c0.includes(n2) || n2.includes(c0)) &&
+        (c1.includes(n1) || n1.includes(c1) || c1.includes(n2) || n2.includes(c1))) return g;
+  }
+  return null;
+}
+function formatGameTooltip(game) {
+  if (!game) return '';
+  const d = game.date ? new Date(game.date) : null;
+  let parts = [];
+  if (d) {
+    parts.push(`<span class="tt-time">${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})} ${d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}</span>`);
+  }
+  if (game.broadcast) parts.push(`<span class="tt-broadcast">${game.broadcast}</span>`);
+  if (game.venue) parts.push(`<span class="tt-venue">${game.venue}</span>`);
+  if (game.status && game.status !== 'Scheduled') parts.push(`<span>${game.status}</span>`);
+  return parts.length ? `<div class="matchup-tooltip">${parts.join(' &middot; ')}</div>` : '';
+}
+
 // ===== BRACKET =====
 function renderBracket() {
   const container=document.getElementById('bracket-container');
@@ -1147,7 +1247,10 @@ function renderBracket() {
       for(let mi=0;mi<nm;mi++){
         const teams=getMatchupTeams(ri,round,mi,o);
         const winner=state.results[ri]?.[round]?.[mi];
-        html+='<div class="matchup">';
+        // Build tooltip from ESPN schedule data
+        const ttGame=(teams[0]&&teams[1])?findGameForTeams(teams[0].name,teams[1].name):null;
+        const ttHtml=formatGameTooltip(ttGame);
+        html+=`<div class="matchup">${ttHtml}`;
         teams.forEach(t=>{
           if(!t){html+='<div class="matchup-team empty">TBD</div>';}
           else{
@@ -1238,6 +1341,69 @@ function clearDownstream(ri,round,mi) {
 
 // addLog removed — log is now rebuilt dynamically from bracket results in renderLog()
 function addLog() {}
+
+// ===== SCHEDULE =====
+function renderSchedule() {
+  const container = document.getElementById('schedule-content');
+  if (!state.schedule || !state.schedule.length) {
+    container.innerHTML = `<div class="schedule-section"><div class="schedule-empty">
+      <div style="font-size:2em;margin-bottom:12px;">&#128197;</div>
+      <p>No schedule data yet. Hit "Sync Results from ESPN" to load game times.</p>
+    </div></div>`;
+    return;
+  }
+
+  // Sort games by date
+  const sorted = [...state.schedule].sort((a,b) => {
+    if (!a.date) return 1; if (!b.date) return -1;
+    return new Date(a.date) - new Date(b.date);
+  });
+
+  // Group by date
+  const groups = {};
+  sorted.forEach(g => {
+    const d = g.date ? new Date(g.date) : null;
+    const key = d ? d.toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric', year:'numeric'}) : 'Unknown Date';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(g);
+  });
+
+  let html = '';
+  for (const [dateLabel, games] of Object.entries(groups)) {
+    html += `<div class="schedule-section"><h3>&#128197; ${dateLabel}</h3>`;
+    games.forEach(g => {
+      const d = g.date ? new Date(g.date) : null;
+      const timeStr = d ? d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'}) : '';
+      const isLive = !g.completed && g.status !== 'Scheduled' && g.status !== 'Postponed';
+      const isFinal = g.completed;
+      const statusCls = isLive ? 'live' : isFinal ? 'final' : '';
+
+      html += `<div class="schedule-game">
+        <div class="schedule-time">
+          <div class="time">${timeStr}</div>
+        </div>
+        <div class="schedule-teams">`;
+      (g.competitors || []).forEach(c => {
+        const cls = isFinal ? (c.winner ? 'winner' : 'loser') : '';
+        html += `<div class="team-line ${cls}">
+          ${c.seed ? `<span class="seed">${c.seed}</span>` : ''}
+          <span>${c.name}</span>
+          ${isFinal || isLive ? `<span class="score">${c.score}</span>` : ''}
+        </div>`;
+      });
+      html += `</div>
+        <div class="schedule-meta">
+          ${g.round ? `<div class="schedule-round-tag">${g.round}</div>` : ''}
+          <div class="schedule-status ${statusCls}">${g.status || 'Scheduled'}</div>
+          ${g.broadcast ? `<div style="color:var(--green)">${g.broadcast}</div>` : ''}
+          ${g.venue ? `<div>${g.venue}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
 
 // ===== LOG =====
 // Rebuilds the log dynamically from actual bracket results (never stale)
@@ -2119,6 +2285,18 @@ async function syncESPN() {
     if (!res.ok) throw new Error('Server error');
     const data = await res.json();
     const games = data.games || [];
+
+    // Store all games for the Schedule tab (includes upcoming, in-progress, and completed)
+    if (!state.schedule) state.schedule = [];
+    state.schedule = games.map(g => ({
+      name: g.name||'', date: g.date||'', status: g.status||'',
+      completed: g.completed||false, round: g.round||'',
+      venue: g.venue||'', broadcast: g.broadcast||'',
+      competitors: (g.competitors||[]).map(c => ({
+        name: c.shortName||c.name||'', seed: c.seed||0,
+        score: c.score||0, winner: c.winner||false
+      }))
+    }));
 
     let applied = 0, skipped = 0, notFound = 0;
     let logLines = [];
