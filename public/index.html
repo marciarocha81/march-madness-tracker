@@ -2443,13 +2443,9 @@ async function syncESPN() {
     if (dashStatus) dashStatus.textContent = `Last synced: ${syncTime}`;
     state.lastSynced = syncTime;
 
-    if (applied > 0) {
-      await saveESPNResults();
-      renderAll();
-    } else {
-      // Even if no new results, save the sync timestamp
-      await saveESPNResults();
-    }
+    await saveESPNResults();
+    // Always re-render after sync so bracket tooltips and schedule tab update
+    renderAll();
 
   } catch (err) {
     if (logEl) logEl.innerHTML = `<div style="color:var(--red)">Error fetching scores: ${err.message}. Try again in a moment.</div>`;
