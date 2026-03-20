@@ -233,12 +233,13 @@
   .bracket-region { background: var(--surface); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
   .bracket-region > h3 { color: var(--green); margin-bottom: 16px; font-size: 1.15em; font-weight: 800; display: flex; align-items: center; gap: 8px; }
   .round-label { text-align: center; color: var(--text2); font-size: 0.7em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; font-weight: 700; }
-  .bracket-grid { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; }
+  .bracket-grid { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; align-items: stretch; }
   .bracket-grid::-webkit-scrollbar { height: 6px; }
   .bracket-grid::-webkit-scrollbar-track { background: rgba(60,85,120,0.2); border-radius: 3px; }
   .bracket-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
   .bracket-round { min-width: 190px; display: flex; flex-direction: column; }
-  .matchup { background: rgba(35,48,75,0.5); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s; }
+  .matchups-container { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+  .matchup { background: rgba(35,48,75,0.5); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s; margin: 2px 0; }
   .matchup:hover { border-color: rgba(255,107,53,0.3); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
   .matchup-team {
     padding: 7px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;
@@ -990,10 +991,7 @@ function renderDashboard() {
   const alive = getTeamsAlive();
   const tg = countGames();
   const pct = tg.total>0 ? Math.round((tg.played/tg.total)*100) : 0;
-  let cr='R64';
-  if(tg.played>=32) cr='R32'; if(tg.played>=48) cr='Sweet 16';
-  if(tg.played>=56) cr='Elite 8'; if(tg.played>=60) cr='Final Four';
-  if(tg.played>=62) cr='Champ'; if(tg.played>=63) cr='Complete';
+  const cr = tg.currentRound;
 
   document.getElementById('progress-bar').innerHTML = `
     <div class="progress-header"><h3>Tournament Progress</h3><div class="progress-pct">${pct}%</div></div>
@@ -1042,9 +1040,21 @@ function getPlayerTeams(p) {
 
 function countGames() {
   let played=0,total=63,biggestUpset=null,biggestSeed=0;
-  REGIONS.forEach((r,ri)=>{for(let round=0;round<4;round++){if(!state.results[ri]?.[round])continue;Object.values(state.results[ri][round]).forEach(s=>{played++;if(s>biggestSeed){biggestSeed=s;biggestUpset=`${s}-seed`;}});}});
-  [0,1].forEach(round=>{if(!state.ffResults[round])return;Object.values(state.ffResults[round]).forEach(wk=>{played++;if(wk){const s=parseInt(wk.split('-')[1]);if(s>biggestSeed){biggestSeed=s;biggestUpset=`${s}-seed`;}}});});
-  return {played,total,biggestUpset};
+  // Count per-round completions across all 4 regions
+  const roundCounts=[0,0,0,0]; // R64, R32, S16, E8
+  const roundExpected=[32,16,8,4]; // total matchups per round across all regions
+  REGIONS.forEach((r,ri)=>{for(let round=0;round<4;round++){if(!state.results[ri]?.[round])continue;const keys=Object.keys(state.results[ri][round]);roundCounts[round]+=keys.length;played+=keys.length;Object.values(state.results[ri][round]).forEach(s=>{if(s>biggestSeed){biggestSeed=s;biggestUpset=`${s}-seed`;}});}});
+  let ffCount=0;
+  [0,1].forEach(round=>{if(!state.ffResults[round])return;Object.values(state.ffResults[round]).forEach(wk=>{played++;ffCount++;if(wk){const s=parseInt(wk.split('-')[1]);if(s>biggestSeed){biggestSeed=s;biggestUpset=`${s}-seed`;}}});});
+  // Determine current round based on which rounds are fully complete
+  let currentRound='R64';
+  if(roundCounts[0]>=roundExpected[0]) currentRound='R32';
+  if(roundCounts[1]>=roundExpected[1]) currentRound='Sweet 16';
+  if(roundCounts[2]>=roundExpected[2]) currentRound='Elite 8';
+  if(roundCounts[3]>=roundExpected[3]) currentRound='Final Four';
+  if(state.ffResults[0]&&Object.keys(state.ffResults[0]).length>=2) currentRound='Champ';
+  if(state.ffResults[1]&&Object.keys(state.ffResults[1]).length>=1) currentRound='Complete';
+  return {played,total,biggestUpset,currentRound};
 }
 
 // ===== SETUP =====
@@ -1133,7 +1143,7 @@ function renderBracket() {
     const o=[[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
     for(let round=0;round<4;round++){
       const nm=8/Math.pow(2,round);
-      html+=`<div class="bracket-round"><div class="round-label">${ROUND_NAMES[round]}</div>`;
+      html+=`<div class="bracket-round"><div class="round-label">${ROUND_NAMES[round]}</div><div class="matchups-container">`;
       for(let mi=0;mi<nm;mi++){
         const teams=getMatchupTeams(ri,round,mi,o);
         const winner=state.results[ri]?.[round]?.[mi];
@@ -1151,7 +1161,7 @@ function renderBracket() {
         });
         html+='</div>';
       }
-      html+='</div>';
+      html+='</div></div>';
     }
     html+='</div></div>';
   });
