@@ -1371,8 +1371,38 @@ function renderSchedule() {
     return;
   }
 
+  // Helper: find owner of a team by name matching
+  function findTeamOwner(teamName) {
+    if (!teamName) return '';
+    const norm = s => (s||'').toLowerCase().replace(/[^a-z]/g,'');
+    const tn = norm(teamName);
+    for (let ri = 0; ri < REGIONS.length; ri++) {
+      for (let s = 1; s <= 16; s++) {
+        const t = state.teams[ri]?.[s];
+        if (t && t.name && t.owner) {
+          const bn = norm(t.name);
+          if (bn === tn || bn.includes(tn) || tn.includes(bn)) {
+            return state.playerNames[t.owner] || t.owner;
+          }
+        }
+      }
+    }
+    return '';
+  }
+
+  // Filter out completed games — only show upcoming
+  const upcoming = state.schedule.filter(g => !g.completed);
+
+  if (!upcoming.length) {
+    container.innerHTML = `<div class="schedule-section"><div class="schedule-empty">
+      <div style="font-size:2em;margin-bottom:12px;">&#9989;</div>
+      <p>All scheduled games have been played!</p>
+    </div></div>`;
+    return;
+  }
+
   // Sort games by date
-  const sorted = [...state.schedule].sort((a,b) => {
+  const sorted = [...upcoming].sort((a,b) => {
     if (!a.date) return 1; if (!b.date) return -1;
     return new Date(a.date) - new Date(b.date);
   });
@@ -1423,9 +1453,11 @@ function renderSchedule() {
         <div class="schedule-teams">`;
       (g.competitors || []).forEach(c => {
         const cls = isFinal ? (c.winner ? 'winner' : 'loser') : '';
+        const owner = findTeamOwner(c.name);
         html += `<div class="team-line ${cls}">
           ${c.seed ? `<span class="seed">${c.seed}</span>` : ''}
           <span>${c.name}</span>
+          ${owner ? `<span style="font-size:0.82em;color:var(--text2);margin-left:6px;opacity:0.8;">(${owner})</span>` : ''}
           ${isFinal || isLive ? `<span class="score">${c.score}</span>` : ''}
         </div>`;
       });
