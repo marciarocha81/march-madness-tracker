@@ -164,9 +164,12 @@ app.get('/api/espn-scores', async (req, res) => {
         const game = {
           id: event.id,
           name: event.name || '',
+          date: event.date || '',
           status: comp.status?.type?.description || 'Scheduled',
           completed: comp.status?.type?.completed || false,
           round: '',
+          venue: comp.venue?.fullName || '',
+          broadcast: comp.broadcasts?.[0]?.names?.[0] || '',
           competitors: competitors.map(c => ({
             name: c.team?.displayName || c.team?.shortDisplayName || '',
             shortName: c.team?.shortDisplayName || c.team?.displayName || '',
