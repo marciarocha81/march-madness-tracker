@@ -247,19 +247,21 @@
   .bracket-round { min-width: 190px; display: flex; flex-direction: column; }
   .matchups-container { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
   .matchup { background: rgba(35,48,75,0.5); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s; margin: 2px 0; }
-  .matchup:hover { border-color: rgba(255,107,53,0.3); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
   .matchup-team {
-    padding: 7px 10px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 7px 10px; display: flex; align-items: center; gap: 8px; cursor: default;
     transition: all 0.2s; font-size: 0.82em; border-bottom: 1px solid rgba(60,85,120,0.2); position: relative;
   }
   .matchup-team:last-child { border-bottom: none; }
-  .matchup-team:hover { background: rgba(255,107,53,0.08); }
   .matchup-team.winner { background: rgba(78,205,196,0.12); font-weight: 700; }
   .matchup-team.winner::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--green); }
   .matchup-team.loser { opacity: 0.35; }
   .matchup-team .seed { background: linear-gradient(135deg, var(--accent), #e85a2b); color: #fff; font-size: 0.7em; font-weight: 800; padding: 2px 6px; border-radius: 4px; min-width: 24px; text-align: center; }
   .matchup-team .owner-tag { margin-left: auto; font-size: 0.72em; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
-  .matchup-team.empty { color: var(--text2); font-style: italic; cursor: default; }
+  .matchup-team.empty { color: var(--text2); font-style: italic; }
+  /* Commissioner mode: enable interactive hover and click styling */
+  .commissioner-mode .matchup:hover { border-color: rgba(255,107,53,0.3); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .commissioner-mode .matchup-team { cursor: pointer; }
+  .commissioner-mode .matchup-team:hover { background: rgba(255,107,53,0.08); }
 
   /* MATCHUP TOOLTIP */
   .matchup { position: relative; }
@@ -1249,9 +1251,11 @@ function formatGameTooltip(game) {
 function renderBracket() {
   const container=document.getElementById('bracket-container');
   const ffC=document.getElementById('final-four-container');
+  // Add commissioner-mode class to enable interactive picking
+  container.className = isCommissioner ? 'commissioner-mode' : '';
+  ffC.className = isCommissioner ? 'commissioner-mode' : '';
   const ri_icons=['&#127993;','&#127775;','&#127806;','&#127754;'];
   let html='';
-  if(!isCommissioner) html+='<div class="read-only-banner">View Only — enter the commissioner password above to make changes</div>';
   REGIONS.forEach((region,ri)=>{
     html+=`<div class="bracket-region"><h3><span>${ri_icons[ri]}</span> ${region} Region</h3><div class="bracket-grid">`;
     const o=[[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
@@ -1327,7 +1331,7 @@ function getFFMatchupTeams(round,mi,semis) {
 }
 
 function pickWinner(ri,round,mi,seed) {
-  if(!isCommissioner){alert('Only the commissioner can enter results. Enter the password above to unlock.');return;}
+  if(!isCommissioner) return;
   if(!state.results[ri])state.results[ri]={};
   if(!state.results[ri][round])state.results[ri][round]={};
   const o=[[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
@@ -1340,7 +1344,7 @@ function pickWinner(ri,round,mi,seed) {
 }
 
 function pickFFWinner(round,mi,wk) {
-  if(!isCommissioner){alert('Only the commissioner can enter results. Enter the password above to unlock.');return;}
+  if(!isCommissioner) return;
   if(!state.ffResults[round])state.ffResults[round]={};
   const prev=state.ffResults[round][mi];
   if(prev===wk){delete state.ffResults[round][mi];if(round===0&&state.ffResults[1])delete state.ffResults[1][0];}
