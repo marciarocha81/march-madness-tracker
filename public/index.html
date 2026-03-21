@@ -2284,6 +2284,7 @@ function normalizeTeamName(name) {
 function findTeamInSetup(espnName, espnAbbr, espnSeed) {
   // Try to match an ESPN team to our setup by name similarity and seed
   const normESPN = normalizeTeamName(espnName);
+  const espnWords = normESPN.split(' ').filter(w => w.length > 2);
   let bestMatch = null;
   let bestScore = 0;
 
@@ -2296,14 +2297,22 @@ function findTeamInSetup(espnName, espnAbbr, espnSeed) {
       let score = 0;
       // Exact match
       if (normOurs === normESPN) score = 100;
-      // One contains the other
-      else if (normESPN.includes(normOurs) || normOurs.includes(normESPN)) score = 80;
+      // ESPN name starts with our bracket name (e.g. "arkansas razorbacks" starts with "arkansas")
+      else if (normESPN.startsWith(normOurs + ' ') || normESPN.startsWith(normOurs)) score = 90;
+      // Our bracket name starts with ESPN name
+      else if (normOurs.startsWith(normESPN + ' ') || normOurs.startsWith(normESPN)) score = 90;
+      // ESPN first word matches our name exactly (handles "arkansas" vs "kansas" — must be full word match)
+      else if (espnWords[0] === normOurs) score = 85;
+      // One contains the other as a whole word (avoid "kansas" matching "arkansas")
+      else if (espnWords.includes(normOurs) || normOurs.split(' ').some(w => w.length > 2 && espnWords.includes(w))) score = 75;
       // Abbreviation match
-      else if (espnAbbr && normalizeTeamName(t.name).startsWith(normalizeTeamName(espnAbbr))) score = 60;
+      else if (espnAbbr && normOurs.startsWith(normalizeTeamName(espnAbbr))) score = 60;
+      // Substring match (lower priority to avoid kansas/arkansas confusion)
+      else if (normESPN.includes(normOurs) || normOurs.includes(normESPN)) score = 50;
       // Word overlap
       else {
-        const w1 = normESPN.split(' '), w2 = normOurs.split(' ');
-        const overlap = w1.filter(w => w.length > 2 && w2.includes(w)).length;
+        const w2 = normOurs.split(' ');
+        const overlap = espnWords.filter(w => w2.includes(w)).length;
         if (overlap > 0) score = 20 + overlap * 15;
       }
 
